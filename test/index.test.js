@@ -7,19 +7,19 @@ const hypercoreCrypto = require('hypercore-crypto')
 const hid = require('hypercore-id-encoding')
 const plink = require('pear-link')
 const { isWindows } = require('which-runtime')
-const { tmpdir, seed, run, arch, bootstrapArg } = require('./helper')
+const tmp = require('test-tmp')
+const { seed, run, arch, bootstrapArg } = require('./helper')
 
 test('successful bin install via testnet', { skip: isWindows }, async function (t) {
   t.timeout(60000)
   const testnet = await createTestnet(3, t.teardown)
-  const key = await seed({
+  const key = await seed(t, {
     bootstrap: testnet.bootstrap,
     manifest: { name: 'tbin', version: '1.0.0', upgrade: 'pear://x', bin: 'cli.js' },
-    files: { ['/by-arch/' + arch + '/app/tbin']: 'BIN' },
-    teardown: t.teardown
+    files: { ['/by-arch/' + arch + '/app/tbin']: 'BIN' }
   })
   const link = plink.serialize({ drive: { key } })
-  const target = tmpdir('install-target-', t.teardown)
+  const target = await tmp(t)
   const { events } = await run([
     '--json',
     '--to',
@@ -37,14 +37,13 @@ test('successful bin install via testnet', { skip: isWindows }, async function (
 test('notFound emits full pear:// link when platform binary missing', async function (t) {
   t.timeout(60000)
   const testnet = await createTestnet(3, t.teardown)
-  const key = await seed({
+  const key = await seed(t, {
     bootstrap: testnet.bootstrap,
     manifest: { name: 'tbin', version: '1.0.0', upgrade: 'pear://x', bin: 'cli.js' },
-    files: {},
-    teardown: t.teardown
+    files: {}
   })
   const link = plink.serialize({ drive: { key } })
-  const target = tmpdir('install-target-', t.teardown)
+  const target = await tmp(t)
   const { events } = await run([
     '--json',
     '--to',
@@ -68,14 +67,13 @@ test('notFound emits full pear:// link when platform binary missing', async func
 test('refuses to overwrite an existing install', { skip: isWindows }, async function (t) {
   t.timeout(60000)
   const testnet = await createTestnet(3, t.teardown)
-  const key = await seed({
+  const key = await seed(t, {
     bootstrap: testnet.bootstrap,
     manifest: { name: 'tbin', version: '1.0.0', upgrade: 'pear://x', bin: 'cli.js' },
-    files: { ['/by-arch/' + arch + '/app/tbin']: 'NEW' },
-    teardown: t.teardown
+    files: { ['/by-arch/' + arch + '/app/tbin']: 'NEW' }
   })
   const link = plink.serialize({ drive: { key } })
-  const target = tmpdir('install-target-', t.teardown)
+  const target = await tmp(t)
   fs.writeFileSync(path.join(target, 'tbin'), 'EXISTING')
   const { events } = await run([
     '--json',
@@ -126,14 +124,13 @@ test(
   async function (t) {
     t.timeout(60000)
     const testnet = await createTestnet(3, t.teardown)
-    const key = await seed({
+    const key = await seed(t, {
       bootstrap: testnet.bootstrap,
       manifest: { name: 'tbin', version: '1.0.0', upgrade: 'pear://x', bin: 'cli.js' },
-      files: { ['/by-arch/' + arch + '/app/tbin']: 'BIN' },
-      teardown: t.teardown
+      files: { ['/by-arch/' + arch + '/app/tbin']: 'BIN' }
     })
     const link = plink.serialize({ drive: { key } })
-    const target = tmpdir('install-target-', t.teardown)
+    const target = await tmp(t)
     const { stdout } = await run(['--to', target, '--dht-bootstrap', bootstrapArg(testnet), link])
     t.ok(stdout.includes('Installing...'), 'installing message printed')
     t.ok(stdout.includes('App: tbin'), 'app message printed')
@@ -147,14 +144,13 @@ test(
   async function (t) {
     t.timeout(60000)
     const testnet = await createTestnet(3, t.teardown)
-    const key = await seed({
+    const key = await seed(t, {
       bootstrap: testnet.bootstrap,
       manifest: { name: 'tbin', version: '1.0.0', upgrade: 'pear://x', bin: 'cli.js' },
-      files: {},
-      teardown: t.teardown
+      files: {}
     })
     const link = plink.serialize({ drive: { key } })
-    const target = tmpdir('install-target-', t.teardown)
+    const target = await tmp(t)
     const { stdout } = await run(['--to', target, '--dht-bootstrap', bootstrapArg(testnet), link])
     t.ok(stdout.includes('Not found: pear://'), 'not found message printed')
   }
@@ -166,14 +162,13 @@ test(
   async function (t) {
     t.timeout(60000)
     const testnet = await createTestnet(3, t.teardown)
-    const key = await seed({
+    const key = await seed(t, {
       bootstrap: testnet.bootstrap,
       manifest: { name: 'tbin', version: '1.0.0', upgrade: 'pear://x', bin: 'cli.js' },
-      files: { ['/by-arch/' + arch + '/app/tbin']: 'BIN' },
-      teardown: t.teardown
+      files: { ['/by-arch/' + arch + '/app/tbin']: 'BIN' }
     })
     const link = plink.serialize({ drive: { key } })
-    const target = tmpdir('install-target-', t.teardown)
+    const target = await tmp(t)
     fs.writeFileSync(path.join(target, 'tbin'), 'EXISTING')
     const { stdout } = await run(['--to', target, '--dht-bootstrap', bootstrapArg(testnet), link])
     t.ok(stdout.includes('Refusing to overwrite existing'), 'refusing message printed')
@@ -184,14 +179,13 @@ test(
 test('_move falls back to copy+rm on EXDEV', { skip: isWindows }, async function (t) {
   t.timeout(60000)
   const testnet = await createTestnet(3, t.teardown)
-  const key = await seed({
+  const key = await seed(t, {
     bootstrap: testnet.bootstrap,
     manifest: { name: 'tbin', version: '1.0.0', upgrade: 'pear://x', bin: 'cli.js' },
-    files: { ['/by-arch/' + arch + '/app/tbin']: 'BIN' },
-    teardown: t.teardown
+    files: { ['/by-arch/' + arch + '/app/tbin']: 'BIN' }
   })
   const link = plink.serialize({ drive: { key } })
-  const target = tmpdir('install-target-', t.teardown)
+  const target = await tmp(t)
   const renameSync = fs.renameSync
   fs.renameSync = function () {
     const err = new Error('cross-device link not permitted')
@@ -217,14 +211,13 @@ test('_move falls back to copy+rm on EXDEV', { skip: isWindows }, async function
 test('permission denied when target dir is read-only', { skip: isWindows }, async function (t) {
   t.timeout(60000)
   const testnet = await createTestnet(3, t.teardown)
-  const key = await seed({
+  const key = await seed(t, {
     bootstrap: testnet.bootstrap,
     manifest: { name: 'tbin', version: '1.0.0', upgrade: 'pear://x', bin: 'cli.js' },
-    files: { ['/by-arch/' + arch + '/app/tbin']: 'BIN' },
-    teardown: t.teardown
+    files: { ['/by-arch/' + arch + '/app/tbin']: 'BIN' }
   })
   const link = plink.serialize({ drive: { key } })
-  const target = tmpdir('install-target-', t.teardown)
+  const target = await tmp(t)
   fs.chmodSync(target, 0o555)
   t.teardown(() => {
     try {

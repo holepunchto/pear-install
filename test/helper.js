@@ -1,33 +1,16 @@
 'use strict'
-const path = require('path')
-const fs = require('fs')
-const os = require('os')
 const Corestore = require('corestore')
 const Hyperdrive = require('hyperdrive')
 const Hyperswarm = require('hyperswarm')
+const tmp = require('test-tmp')
 const { command, arg, bail } = require('paparam')
 const pkg = require('../package.json')
 const install = require('..')
 const process = require('process')
 const arch = `${process.platform}-${process.arch}`
 
-function rmDir(dir) {
-  fs.rmSync(dir, {
-    recursive: true,
-    force: true,
-    maxRetries: 10,
-    retryDelay: 100
-  })
-}
-
-function tmpdir(prefix, teardown) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix))
-  teardown(() => rmDir(dir))
-  return dir
-}
-
-async function seed({ bootstrap, manifest, files, teardown }) {
-  const storage = fs.mkdtempSync(path.join(os.tmpdir(), 'pear-install-seed-'))
+async function seed(t, { bootstrap, manifest, files }) {
+  const storage = await tmp(t)
   const corestore = new Corestore(storage)
   const drive = new Hyperdrive(corestore)
   await drive.ready()
@@ -39,11 +22,10 @@ async function seed({ bootstrap, manifest, files, teardown }) {
   swarm.on('connection', (c) => corestore.replicate(c))
   swarm.join(drive.discoveryKey, { server: true, client: false })
   await swarm.flush()
-  teardown(async () => {
+  t.teardown(async () => {
     await swarm.destroy()
     await drive.close()
     await corestore.close()
-    rmDir(storage)
   })
   return drive.key
 }
@@ -95,4 +77,4 @@ function bootstrapArg(testnet) {
   return testnet.bootstrap.map((b) => `${b.host}:${b.port}`).join(',')
 }
 
-module.exports = { tmpdir, seed, run, arch, bootstrapArg }
+module.exports = { seed, run, arch, bootstrapArg }
