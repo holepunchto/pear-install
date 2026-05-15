@@ -11,14 +11,23 @@ const install = require('..')
 const process = require('process')
 const arch = `${process.platform}-${process.arch}`
 
+function rmDir(dir) {
+  fs.rmSync(dir, {
+    recursive: true,
+    force: true,
+    maxRetries: 10,
+    retryDelay: 100
+  })
+}
+
 function tmpdir(prefix, teardown) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix))
-  teardown(() => fs.rmSync(dir, { recursive: true, force: true }))
+  teardown(() => rmDir(dir))
   return dir
 }
 
 async function seed({ bootstrap, manifest, files, teardown }) {
-  const storage = tmpdir('pear-install-seed-', teardown)
+  const storage = fs.mkdtempSync(path.join(os.tmpdir(), 'pear-install-seed-'))
   const corestore = new Corestore(storage)
   const drive = new Hyperdrive(corestore)
   await drive.ready()
@@ -34,6 +43,7 @@ async function seed({ bootstrap, manifest, files, teardown }) {
     await swarm.destroy()
     await drive.close()
     await corestore.close()
+    rmDir(storage)
   })
   return drive.key
 }
