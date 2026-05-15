@@ -262,13 +262,11 @@ class Install extends Opstream {
         process.stdout.write(JSON.stringify({ cmd: 'install', tag, data }) + '\n')
         continue
       }
-      if (tag === 'stats') {
-        process.stdout.write('\r\x1B[2K' + this.outputs.stats(data))
-      } else if (this.outputs[tag]) {
-        process.stdout.write('\r\x1B[2K' + this.outputs[tag](data) + '\n')
-      } else if (tag === 'final') {
+      if (tag === 'final') {
         process.stdout.write('\r\x1B[2K' + this.outputs.final(data) + '\n')
         return data
+      } else if (this.outputs[tag]) {
+        process.stdout.write('\r\x1B[2K' + this.outputs[tag](data) + '\n')
       }
     }
   }
