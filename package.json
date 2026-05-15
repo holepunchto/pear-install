@@ -64,6 +64,7 @@
     "hyperdrive": "^13.3.2",
     "hyperswarm": "^4.17.0",
     "localdrive": "^2.2.1",
+    "paparam": "^1.10.1",
     "pear-errors": "^1.0.1",
     "pear-link": "^4.2.1",
     "pear-opstream": "^1.0.1",
