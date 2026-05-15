@@ -6,7 +6,9 @@
   "description": "Install Pear and Pear Applications",
   "author": "Holepunch Inc",
   "license": "Apache-2.0",
-  "bin": "cmd.js",
+  "bin": {
+    "pear-install": "cmd.js"
+  },
   "imports": {
     "process": {
       "bare": "bare-process",
@@ -76,5 +78,17 @@
     "prettier-config-holepunch": "^2.0.0",
     "test-tmp": "^1.4.0",
     "which-runtime": "^1.3.2"
-  }
+  },
+  "directories": {
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/holepunchto/pear-install.git"
+  },
+  "keywords": [],
+  "bugs": {
+    "url": "https://github.com/holepunchto/pear-install/issues"
+  },
+  "homepage": "https://github.com/holepunchto/pear-install#readme"
 }
