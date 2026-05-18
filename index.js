@@ -24,6 +24,7 @@ function ERR_EXISTS(msg, info = null) {
   return new PearError(msg, ERR_EXISTS, info)
 }
 
+const down = isWindows ? '↓' : '⬇'
 const PEAR_DIR = isMac
   ? path.join(os.homedir(), 'Library', 'Application Support', 'pear')
   : isLinux
@@ -35,16 +36,12 @@ class Install extends Opstream {
     installing: ({ link }) => `Installing... ${link}`,
     app: ({ app, version, upgrade, dest, key }) =>
       `App: ${app}\nVersion: ${version}\nLink: ${upgrade}\nPathname: ${key}\nTarget: ${dest}`,
-    stats({ upload, download, peers }) {
+    stats({ download, peers }) {
       const dl =
         download.bytes + download.speed === 0
           ? ''
-          : `[ down ${byteSize(download.bytes)} - ${byteSize(download.speed)}/s ] `
-      const ul =
-        upload.bytes + upload.speed === 0
-          ? ''
-          : `[ up ${byteSize(upload.bytes)} - ${byteSize(upload.speed)}/s ] `
-      return `[ Peers: ${peers} ] ${dl}${ul}`
+          : ` [ ${down} ${byteSize(download.bytes)} - ${byteSize(download.speed)}/s ] `
+      return `[ Peers: ${peers} ]${dl}`
     },
     error: ({ message }) => message,
     final({ success, message }) {
@@ -257,17 +254,23 @@ class Install extends Opstream {
   }
 
   static async output(json, stream) {
+    let status = false
     for await (const { tag, data } of stream) {
       if (json) {
         process.stdout.write(JSON.stringify({ cmd: 'install', tag, data }) + '\n')
         continue
       }
-      if (tag === 'final') {
-        process.stdout.write('\r\x1B[2K' + this.outputs.final(data) + '\n')
-        return data
-      } else if (this.outputs[tag]) {
-        process.stdout.write('\r\x1B[2K' + this.outputs[tag](data) + '\n')
+      if (!this.outputs[tag]) continue
+      const line = this.outputs[tag](data)
+      const clear = status ? '\r\x1B[2K' : ''
+      if (tag === 'stats') {
+        process.stdout.write('\r\x1B[2K' + line)
+        status = true
+        continue
       }
+      process.stdout.write(clear + line + '\n')
+      status = false
+      if (tag === 'final') return data
     }
   }
 
