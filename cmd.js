@@ -1,30 +1,75 @@
-#!/usr/bin/env node
-const pkg = require('./package.json')
+'use strict'
+const process = require('process')
+const Opstream = require('pear-opstream')
+const byteSize = require('tiny-byte-size')
 const { isWindows } = require('which-runtime')
-const { command, arg, bail } = require('paparam')
-const install = require('.')
+const Install = require('.')
 
-const program = command(
-  'install',
-  arg('[link]', 'Pear link origin to install from'),
-  async (cmd) => {
-    if (!cmd.args.link) cmd.args.link = pkg.pear.platform.key
-    await install(cmd)
-  },
-  pkg.command,
-  bail((info = {}) => {
-    process.exitCode = 1
-    let message
-    if (info.reason === 'UNKNOWN_FLAG') message = 'Unrecognized Flag: --' + info.flag.name
-    else if (info.reason === 'UNKNOWN_ARG') {
-      message = `Unrecognized Argument at index ${info.arg.index} with value ${info.arg.value}`
-    } else message = info.err?.message ?? 'Failed'
-    const cross = isWindows ? 'x' : '\x1B[31m✖\x1B[39m'
-    console.error(cross, message)
-    if (info.reason === 'UNKNOWN_FLAG' || info.reason === 'UNKNOWN_ARG') {
-      console.error('\n' + info.command.usage())
+const down = isWindows ? '↓' : '⬇'
+
+class InstallCmd extends Opstream {
+  static outputs = {
+    installing: ({ link }) => `Installing... ${link}`,
+    app: ({ app, version, upgrade, dest, key }) =>
+      `App: ${app}\nVersion: ${version}\nLink: ${upgrade}\nPathname: ${key}\nTarget: ${dest}`,
+    stats({ download, peers }) {
+      const dl =
+        download.bytes + download.speed === 0
+          ? ''
+          : ` [ ${down} ${byteSize(download.bytes)} - ${byteSize(download.speed)}/s ] `
+      return `[ Peers: ${peers} ]${dl}`
+    },
+    error: ({ message }) => message,
+    final({ success, message }) {
+      if (success) return 'Installed'
+      return message ?? 'Failed'
     }
-  })
-)
+  }
+  static async output(json, stream) {
+    let status = false
+    for await (const { tag, data } of stream) {
+      if (json) {
+        process.stdout.write(JSON.stringify({ cmd: 'install', tag, data }) + '\n')
+        continue
+      }
+      if (!this.outputs[tag]) continue
+      const line = this.outputs[tag](data)
+      const clear = status ? '\r\x1B[2K' : ''
+      if (tag === 'stats') {
+        process.stdout.write('\r\x1B[2K' + line)
+        status = true
+        continue
+      }
+      process.stdout.write(clear + line + '\n')
+      status = false
+      if (tag === 'final') return data
+    }
+  }
 
-program.parse(process.argv.slice(2))
+  constructor(params) {
+    super((...args) => this.#op(...args), params)
+  }
+
+  async #op(opts) {
+    const install = new Install(opts)
+    install.on('installing', (data) => {
+      this.push({ tag: 'installing', data })
+    })
+    install.on('app', (data) => {
+      this.push({ tag: 'app', data })
+    })
+    install.on('stats', (data) => {
+      this.push({ tag: 'stats', data })
+    })
+    install.on('final', (data) => {
+      this.final = data
+    })
+    try {
+      await install.ready()
+    } finally {
+      await install.close()
+    }
+  }
+}
+
+module.exports = InstallCmd

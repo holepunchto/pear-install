@@ -5,9 +5,25 @@ const Hyperswarm = require('hyperswarm')
 const tmp = require('test-tmp')
 const { command, arg, bail } = require('paparam')
 const pkg = require('../package.json')
-const install = require('..')
+const InstallCmd = require('../cmd')
 const process = require('process')
 const arch = `${process.platform}-${process.arch}`
+
+async function install(cmd) {
+  const { json, only, to, dhtBootstrap } = cmd.flags
+  const timeout = (cmd.flags.timeout || 30) * 1000
+  const link = cmd.args.link
+  const bootstrap = dhtBootstrap
+    ? dhtBootstrap.split(',').map((tuple) => {
+        const [host, port] = tuple.split(':')
+        const int = +port
+        if (Number.isInteger(int) === false) throw new Error(`Invalid port: ${port}`)
+        return { host, port: int }
+      })
+    : undefined
+  const stream = new InstallCmd({ link, only, to, bootstrap, timeout })
+  await InstallCmd.output(json, stream)
+}
 
 async function seed(t, { bootstrap, manifest, files }) {
   const storage = await tmp(t)

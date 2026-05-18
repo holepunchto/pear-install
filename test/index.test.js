@@ -8,6 +8,9 @@ const hid = require('hypercore-id-encoding')
 const plink = require('pear-link')
 const { isWindows } = require('which-runtime')
 const tmp = require('test-tmp')
+const Corestore = require('corestore')
+const Hyperswarm = require('hyperswarm')
+const Install = require('..')
 const { seed, run, arch, bootstrapArg } = require('./helper')
 
 test('successful bin install via testnet', { skip: isWindows }, async function (t) {
@@ -206,6 +209,87 @@ test('_move falls back to copy+rm on EXDEV', { skip: isWindows }, async function
   const final = events.find((e) => e.tag === 'final')
   t.is(final?.data?.success, true, 'install succeeded via copy+rm fallback')
   t.is(fs.readFileSync(path.join(target, 'tbin'), 'utf8'), 'BIN', 'bin content copied to target')
+})
+
+test('accepts injected corestore and swarm', { skip: isWindows }, async function (t) {
+  t.timeout(60000)
+  const testnet = await createTestnet(3, t.teardown)
+  const key = await seed(t, {
+    bootstrap: testnet.bootstrap,
+    manifest: { name: 'tbin', version: '1.0.0', upgrade: 'pear://x', bin: 'cli.js' },
+    files: { ['/by-arch/' + arch + '/app/tbin']: 'BIN' }
+  })
+  const storage = await tmp(t)
+  const corestore = new Corestore(storage)
+  await corestore.ready()
+  const swarm = new Hyperswarm({ bootstrap: testnet.bootstrap })
+  swarm.on('connection', (c) => corestore.replicate(c))
+  t.teardown(async () => {
+    await swarm.destroy()
+    await corestore.close()
+  })
+  const link = plink.serialize({ drive: { key } })
+  const target = await tmp(t)
+  const install = new Install({
+    link,
+    to: target,
+    bootstrap: testnet.bootstrap,
+    corestore,
+    swarm
+  })
+  await install.ready()
+  t.is(fs.readFileSync(path.join(target, 'tbin'), 'utf8'), 'BIN', 'bin written to target')
+  await install.close()
+  t.is(corestore.closed, false, 'injected corestore not closed by install')
+  t.is(swarm.destroyed, false, 'injected swarm not destroyed by install')
+})
+
+test('injected corestore reused for second install', { skip: isWindows }, async function (t) {
+  t.timeout(60000)
+  const testnet = await createTestnet(3, t.teardown)
+  const keyA = await seed(t, {
+    bootstrap: testnet.bootstrap,
+    manifest: { name: 'tbin-a', version: '1.0.0', upgrade: 'pear://x', bin: 'cli.js' },
+    files: { ['/by-arch/' + arch + '/app/tbin-a']: 'A' }
+  })
+  const keyB = await seed(t, {
+    bootstrap: testnet.bootstrap,
+    manifest: { name: 'tbin-b', version: '1.0.0', upgrade: 'pear://y', bin: 'cli.js' },
+    files: { ['/by-arch/' + arch + '/app/tbin-b']: 'B' }
+  })
+  const storage = await tmp(t)
+  const corestore = new Corestore(storage)
+  await corestore.ready()
+  const swarm = new Hyperswarm({ bootstrap: testnet.bootstrap })
+  swarm.on('connection', (c) => corestore.replicate(c))
+  t.teardown(async () => {
+    await swarm.destroy()
+    await corestore.close()
+  })
+  const targetA = await tmp(t)
+  const targetB = await tmp(t)
+
+  const first = new Install({
+    link: plink.serialize({ drive: { key: keyA } }),
+    to: targetA,
+    bootstrap: testnet.bootstrap,
+    corestore,
+    swarm
+  })
+  await first.ready()
+  await first.close()
+  t.is(fs.readFileSync(path.join(targetA, 'tbin-a'), 'utf8'), 'A', 'first install wrote bin')
+
+  const second = new Install({
+    link: plink.serialize({ drive: { key: keyB } }),
+    to: targetB,
+    bootstrap: testnet.bootstrap,
+    corestore,
+    swarm
+  })
+  await second.ready()
+  await second.close()
+  t.is(fs.readFileSync(path.join(targetB, 'tbin-b'), 'utf8'), 'B', 'second install wrote bin')
 })
 
 test('permission denied when target dir is read-only', { skip: isWindows }, async function (t) {
