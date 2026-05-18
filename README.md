@@ -72,7 +72,7 @@ await corestore.close()
 - `stats` → `{ download, upload, peers }`
 - `final` → `{ success, installed, exists }`
 
-## CMD
+## Command Integration: `/cmd`
 
 For embedding in another CLI. Wraps `Install` as a `pear-opstream` of `{ tag, data }` records with stdout formatters.
 
@@ -91,7 +91,7 @@ await InstallCmd.output(json, stream)
 - `error` → `{ code, message, stack, info, success: false }`
 - `final` → `{ success, installed, exists }`
 
-### `InstallCmd.output(json, stream)`
+### `await InstallCmd.output(json, stream)`
 
 Drains `stream` to STDOUT.
 
@@ -99,6 +99,12 @@ Drains `stream` to STDOUT.
 - `json` falsy — formats per-tag; `stats` updates in place via ANSI; static tags stack above.
 
 Returns the `final` record.
+
+### `await InstallCmd.runner(cmd)`
+
+Pass directly as a [paparam](https://github.com/holepunchto/paparam) command runner. Creates `InstallCmd` instance and passes it to `InstallCmd.output`
+
+- `cmd` is a [paparam](https://github.com/holepunchto/paparam) `cmd` instance
 
 ## License
 

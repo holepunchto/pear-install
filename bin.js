@@ -2,26 +2,12 @@
 const pkg = require('./package.json')
 const { isWindows } = require('which-runtime')
 const { command, arg, bail } = require('paparam')
-const InstallCmd = require('./cmd')
+const { runner } = require('./cmd')
 
 const program = command(
   'install',
   arg('[link]', 'Pear link origin to install from'),
-  async (cmd) => {
-    const { json, only, to, dhtBootstrap } = cmd.flags
-    const timeout = (cmd.flags.timeout || 30) * 1000
-    const link = cmd.args.link ?? pkg.pear.platform.key
-    const bootstrap = dhtBootstrap
-      ? dhtBootstrap.split(',').map((tuple) => {
-          const [host, port] = tuple.split(':')
-          const int = +port
-          if (Number.isInteger(int) === false) throw new Error(`Invalid port: ${port}`)
-          return { host, port: int }
-        })
-      : undefined
-    const stream = new InstallCmd({ link, only, to, bootstrap, timeout })
-    await InstallCmd.output(json, stream)
-  },
+  runner,
   pkg.command,
   bail((info = {}) => {
     process.exitCode = 1

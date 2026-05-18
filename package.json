@@ -12,7 +12,8 @@
   "bin": "bin.js",
   "exports": {
     ".": "./index.js",
-    "./cmd": "./cmd.js"
+    "./cmd": "./cmd.js",
+    "./package.json": "./package.json"
   },
   "imports": {
     "process": {

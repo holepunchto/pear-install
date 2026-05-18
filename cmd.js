@@ -3,6 +3,7 @@ const process = require('process')
 const Opstream = require('pear-opstream')
 const byteSize = require('tiny-byte-size')
 const { isWindows } = require('which-runtime')
+const pkg = require('./package.json')
 const Install = require('.')
 
 const down = isWindows ? '↓' : '⬇'
@@ -44,6 +45,22 @@ class InstallCmd extends Opstream {
       status = false
       if (tag === 'final') return data
     }
+  }
+
+  static async runner(cmd) {
+    const { json, only, to, dhtBootstrap } = cmd.flags
+    const timeout = (cmd.flags.timeout || 30) * 1000
+    const link = cmd.args.link ?? pkg.pear.platform.key
+    const bootstrap = dhtBootstrap
+      ? dhtBootstrap.split(',').map((tuple) => {
+          const [host, port] = tuple.split(':')
+          const int = +port
+          if (Number.isInteger(int) === false) throw new Error(`Invalid port: ${port}`)
+          return { host, port: int }
+        })
+      : undefined
+    const stream = new InstallCmd({ link, only, to, bootstrap, timeout })
+    await InstallCmd.output(json, stream)
   }
 
   constructor(params) {
