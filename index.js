@@ -194,10 +194,7 @@ class Install extends ReadyResource {
       const key = appPath + filename + ext
       const fork = Number.isInteger(this.drive.core.fork) ? this.drive.core.fork : null
       const length = Number.isInteger(this.drive.core.length) ? this.drive.core.length : null
-      const verlink =
-        fork !== null && length !== null
-          ? plink.serialize({ drive: { key: parsed.drive.key, fork, length } })
-          : link
+      const verlink = plink.serialize({ drive: { key: parsed.drive.key, fork, length } })
       this.emit('app', {
         app: filename,
         name,
