@@ -68,7 +68,7 @@ await corestore.close()
 ### Events
 
 - `installing` → `{ link, host }`
-- `app` → `{ app, name, version, upgrade, key, dest }`
+- `app` → `{ app, name, version, upgrade, verlink, key, dest }`
 - `stats` → `{ download, upload, peers }`
 - `final` → `{ success, installed, exists }`
 
@@ -86,7 +86,7 @@ await InstallCmd.output(json, stream)
 ### Tags
 
 - `installing` → `{ link, host }`
-- `app` → `{ app, name, version, upgrade, key, dest }`
+- `app` → `{ app, name, version, upgrade, verlink, key, dest }`
 - `stats` → `{ download, upload, peers }`
 - `error` → `{ code, message, stack, info, success: false }`
 - `final` → `{ success, installed, exists }`
