@@ -11,8 +11,8 @@ const down = isWindows ? '↓' : '⬇'
 class InstallCmd extends Opstream {
   static outputs = {
     installing: ({ link }) => `Installing... ${link}`,
-    app: ({ app, version, upgrade, dest, key }) =>
-      `App: ${app}\nVersion: ${version}\nLink: ${upgrade}\nPathname: ${key}\nTarget: ${dest}`,
+    app: ({ app, version, upgrade, dest, key, fork, length }) =>
+      `App: ${app}\nVersion: ${version}\nLink: ${upgrade}\nFork: ${fork ?? 'n/a'}\nLength: ${length ?? 'n/a'}\nPathname: ${key}\nTarget: ${dest}`,
     stats({ download, peers }) {
       const dl =
         download.bytes + download.speed === 0

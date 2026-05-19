@@ -192,7 +192,17 @@ class Install extends ReadyResource {
     let installed = 0
     for (const { filename, ext, dest, isBin } of installs) {
       const key = appPath + filename + ext
-      this.emit('app', { app: filename, name, version, upgrade, key, tmp, dest })
+      this.emit('app', {
+        app: filename,
+        name,
+        version,
+        upgrade,
+        key,
+        tmp,
+        dest,
+        fork: Number.isFinite(this.drive.core.fork) ? this.drive.core.fork : null,
+        length: Number.isFinite(this.drive.core.length) ? this.drive.core.length : null
+      })
 
       const from = path.join(tmp, 'by-arch', host, 'app', filename + ext)
 
