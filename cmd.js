@@ -12,7 +12,7 @@ class InstallCmd extends Opstream {
   static outputs = {
     installing: ({ link }) => `Installing... ${link}`,
     app: ({ app, version, upgrade, dest, key, verlink }) =>
-      `App: ${app}\nVersion: ${version}\nLink: ${upgrade}\nVerlink: ${verlink ?? 'n/a'}\nPathname: ${key}\nTarget: ${dest}`,
+      `App: ${app}\nVersion: ${version}\nLink: ${upgrade}\nVerlink: ${verlink}\nPathname: ${key}\nTarget: ${dest}`,
     stats({ download, peers }) {
       const dl =
         download.bytes + download.speed === 0
