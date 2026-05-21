@@ -20,7 +20,7 @@ npx pear-install [link]
 
 - **macOS** — apps to `/Applications`, bins to `/usr/local/bin`
 - **Linux** — apps to `~/Applications`, `~/AppImages`, or `~/.local/bin`; bins to `~/.local/bin`
-- **Windows** — apps and bins installed as MSIX packages
+- **Windows** — apps installed as MSIX packages; bins (`.exe`) to `%LOCALAPPDATA%\Programs\<app>\` with the install directory added to the User `PATH`
 
 ## API
 
@@ -70,6 +70,7 @@ await corestore.close()
 - `installing` → `{ link, host }`
 - `app` → `{ app, name, version, upgrade, verlink, key, dest }`
 - `stats` → `{ download, upload, peers }`
+- `path` → `{ dir }` — Windows only; emitted when a bin directory is appended to the User `PATH`
 - `final` → `{ success, installed, exists }`
 
 ## Command Integration: `/cmd`
@@ -88,6 +89,7 @@ await InstallCmd.output(json, stream)
 - `installing` → `{ link, host }`
 - `app` → `{ app, name, version, upgrade, verlink, key, dest }`
 - `stats` → `{ download, upload, peers }`
+- `path` → `{ dir }` — Windows only
 - `error` → `{ code, message, stack, info, success: false }`
 - `final` → `{ success, installed, exists }`
 

@@ -20,6 +20,7 @@ class InstallCmd extends Opstream {
           : ` [ ${down} ${byteSize(download.bytes)} - ${byteSize(download.speed)}/s ] `
       return `[ Peers: ${peers} ]${dl}`
     },
+    path: ({ dir }) => `Added to User PATH: ${dir}\n  Restart shell change to take effect.`,
     error: ({ message }) => message,
     final({ success, message }) {
       if (success) return 'Installed'
@@ -77,6 +78,9 @@ class InstallCmd extends Opstream {
     })
     install.on('stats', (data) => {
       this.push({ tag: 'stats', data })
+    })
+    install.on('path', (data) => {
+      this.push({ tag: 'path', data })
     })
     install.on('final', (data) => {
       this.final = data

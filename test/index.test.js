@@ -175,7 +175,7 @@ test(
     fs.writeFileSync(path.join(target, 'tbin'), 'EXISTING')
     const { stdout } = await run(['--to', target, '--dht-bootstrap', bootstrapArg(testnet), link])
     t.ok(stdout.includes('Refusing to overwrite existing'), 'refusing message printed')
-    t.ok(stdout.includes('Manually remove first'), 'fix hint printed')
+    t.ok(stdout.includes('manually remove then rerun'), 'fix hint printed')
   }
 )
 

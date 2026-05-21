@@ -99,16 +99,18 @@ class Install extends ReadyResource {
     const appName = productName ?? name
     const home = os.homedir()
 
+    const localAppData = process.env.LOCALAPPDATA || path.join(home, 'AppData', 'Local')
+
     if (bin) {
       const bins = typeof bin === 'string' ? { [name]: bin } : bin
       for (const binName of Object.keys(bins)) {
-        const ext = isWindows ? '.msix' : ''
-        const dest = isWindows
-          ? null
-          : to
-            ? path.join(to, binName + ext)
-            : isMac
-              ? path.join('/', 'usr', 'local', 'bin', binName)
+        const ext = isWindows ? '.exe' : ''
+        const dest = to
+          ? path.join(to, binName + ext)
+          : isMac
+            ? path.join('/', 'usr', 'local', 'bin', binName)
+            : isWindows
+              ? path.join(localAppData, 'Programs', appName, binName + ext)
               : path.join(home, '.local', 'bin', binName)
         this.targets.push({ filename: binName, ext, dest, isBin: true })
       }
@@ -151,27 +153,29 @@ class Install extends ReadyResource {
     const exists = []
     const installs = []
     for (const target of this.targets) {
-      if (isWindows) {
+      if (target.ext === '.msix') {
+        const escName = name.replace(/'/g, "''")
         const ps = spawnSync('powershell', [
           '-NoProfile',
           '-Command',
-          `(Get-AppxPackage '${target.filename}') -ne $null`
+          `$null -ne (Get-AppxPackage -Name '${escName}' -ErrorAction SilentlyContinue)`
         ])
         if (ps.stdout.toString().trim() === 'True') {
-          exists.push({ filename: target.filename, dest: target.dest })
+          exists.push({ filename: target.filename, dest: target.dest, ext: target.ext })
           continue
         }
       } else if (fs.existsSync(target.dest)) {
-        exists.push({ filename: target.filename, dest: target.dest })
+        exists.push({ filename: target.filename, dest: target.dest, ext: target.ext })
         continue
       }
+      if (target.ext === '.exe') this._windows(path.dirname(target.dest))
       installs.push(target)
     }
 
     if (installs.length === 0) {
-      const message = isWindows
-        ? `Already installed:\n${exists.map(({ filename }) => '  ' + filename).join('\n')}\n  Manually uninstall first to reinstall`
-        : `Refusing to overwrite existing:\n${exists.map(({ dest }) => '  ' + dest).join('\n')}\n  Manually remove first to reinstall`
+      const lines = exists.map(({ filename, dest }) => '  ' + (dest ?? filename))
+      const header = isWindows ? 'Already installed:' : 'Refusing to overwrite existing:'
+      const message = `${header}\n${lines.join('\n')}\nTo reinstall, manually remove then rerun command`
       throw ERR_EXISTS(message)
     }
 
@@ -210,7 +214,7 @@ class Install extends ReadyResource {
         throw ERR_NOT_FOUND(plink.serialize({ ...parsed, pathname: key }))
       }
 
-      if (isWindows) {
+      if (ext === '.msix') {
         const MSIXManager = require('msix-manager')
         await new MSIXManager().addPackage(from)
         installed++
@@ -274,6 +278,34 @@ class Install extends ReadyResource {
       desktopPath,
       path.join(home, '.local', 'share', 'applications', appName + '.desktop')
     )
+  }
+
+  _windows(dir) {
+    const read = spawnSync('powershell', [
+      '-NoProfile',
+      '-Command',
+      "[Environment]::GetEnvironmentVariable('Path', 'User')"
+    ])
+    if (read.status !== 0) {
+      const err = (read.stderr || '').toString().trim()
+      throw new Error('Failed to read User PATH: ' + (err || 'powershell exit ' + read.status))
+    }
+    const current = read.stdout.toString().replace(/\r?\n$/, '')
+    const entries = current ? current.split(';').filter(Boolean) : []
+    if (entries.includes(dir)) return false
+    const next = (current ? current + ';' : '') + dir
+    const escNext = next.replace(/'/g, "''")
+    const write = spawnSync('powershell', [
+      '-NoProfile',
+      '-Command',
+      `[Environment]::SetEnvironmentVariable('Path', '${escNext}', 'User')`
+    ])
+    if (write.status !== 0) {
+      const err = (write.stderr || '').toString().trim()
+      throw new Error('Failed to update User PATH: ' + (err || 'powershell exit ' + write.status))
+    }
+    this.emit('path', { dir })
+    return true
   }
 
   _extract(appImage, extracted, cwd, file) {
