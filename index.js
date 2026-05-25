@@ -168,7 +168,6 @@ class Install extends ReadyResource {
         exists.push({ filename: target.filename, dest: target.dest, ext: target.ext })
         continue
       }
-      if (target.ext === '.exe') this._windows(path.dirname(target.dest))
       installs.push(target)
     }
 
@@ -219,6 +218,8 @@ class Install extends ReadyResource {
         await new MSIXManager().addPackage(from)
         installed++
         continue
+      } else if (ext === '.exe') {
+        this._exe(path.dirname(dest))
       }
 
       if (isBin) {
@@ -280,7 +281,7 @@ class Install extends ReadyResource {
     )
   }
 
-  _windows(dir) {
+  _exe(dir) {
     const read = spawnSync('powershell', [
       '-NoProfile',
       '-Command',
