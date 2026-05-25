@@ -20,7 +20,7 @@ class InstallCmd extends Opstream {
           : ` [ ${down} ${byteSize(download.bytes)} - ${byteSize(download.speed)}/s ] `
       return `[ Peers: ${peers} ]${dl}`
     },
-    path: ({ dir }) => `Added to User PATH: ${dir}\n  Restart shell change to take effect.`,
+    path: ({ dir }) => `Added to User PATH: ${dir}\n  Restart shell for change to take effect.`,
     error: ({ message }) => message,
     final({ success, message }) {
       if (success) return 'Installed'
