@@ -193,6 +193,7 @@ class Install extends ReadyResource {
     monitor.destroy()
 
     let installed = 0
+    const exes = new Set()
     for (const { filename, ext, dest, isBin } of installs) {
       const key = appPath + filename + ext
       const verlink = plink.serialize({ drive: this.drive.core })
@@ -219,7 +220,7 @@ class Install extends ReadyResource {
         installed++
         continue
       } else if (ext === '.exe') {
-        this._exe(path.dirname(dest))
+        exes.add(dest)
       }
 
       if (isBin) {
@@ -257,6 +258,9 @@ class Install extends ReadyResource {
     if (installed === 0) {
       throw ERR_UNKNOWN('Failed to install')
     }
+
+    for (const dest of exes) this._exe(path.dirname(dest))
+
     this.emit('final', { success: true, installed, exists })
   }
 
