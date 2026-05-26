@@ -28,6 +28,11 @@ const PEAR_DIR = isMac
   : isLinux
     ? path.join(os.homedir(), '.config', 'pear')
     : path.join(os.homedir(), 'AppData', 'Roaming', 'pear')
+const WINDOWS_CLI_DIR = path.join(
+  process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'),
+  'Microsoft',
+  'WindowsApps'
+)
 
 class Install extends ReadyResource {
   constructor({ link, only, to, bootstrap, timeout = 30_000, corestore = null, swarm = null }) {
@@ -102,9 +107,11 @@ class Install extends ReadyResource {
     if (bin) {
       const bins = typeof bin === 'string' ? { [name]: bin } : bin
       for (const binName of Object.keys(bins)) {
-        const ext = isWindows ? '.msix' : ''
+        const ext = isWindows ? '.exe' : ''
         const dest = isWindows
-          ? null
+          ? to
+            ? path.join(to, binName + ext)
+            : path.join(WINDOWS_CLI_DIR, binName + ext)
           : to
             ? path.join(to, binName + ext)
             : isMac
@@ -151,7 +158,12 @@ class Install extends ReadyResource {
     const exists = []
     const installs = []
     for (const target of this.targets) {
-      if (isWindows) {
+      if (isWindows && target.isBin) {
+        if (fs.existsSync(target.dest)) {
+          exists.push({ filename: target.filename, dest: target.dest })
+          continue
+        }
+      } else if (isWindows) {
         const ps = spawnSync('powershell', [
           '-NoProfile',
           '-Command',
@@ -208,6 +220,14 @@ class Install extends ReadyResource {
 
       if (fs.existsSync(from) === false) {
         throw ERR_NOT_FOUND(plink.serialize({ ...parsed, pathname: key }))
+      }
+
+      if (isWindows && isBin) {
+        fs.mkdirSync(path.dirname(dest), { recursive: true })
+        this._move(from, dest)
+        this._addUserPath(path.dirname(dest))
+        installed++
+        continue
       }
 
       if (isWindows) {
@@ -309,6 +329,39 @@ class Install extends ReadyResource {
     }
   }
 
+  _addUserPath(dir) {
+    // safer especially for older profiles / dev shells / stripped-down enviornments
+    const command = `
+$ErrorActionPreference = 'Stop'
+$Path = [System.IO.Path]::GetFullPath('${escapePowerShellSingleQuoted(dir)}')
+$UserPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+$Entries = @()
+if (-not [string]::IsNullOrWhiteSpace($UserPath)) {
+  $Entries = @($UserPath -split ';' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+}
+$Exists = $false
+foreach ($Entry in $Entries) {
+  if ([string]::Equals(
+    [System.IO.Path]::GetFullPath([Environment]::ExpandEnvironmentVariables($Entry)),
+    $Path,
+    [System.StringComparison]::OrdinalIgnoreCase
+  )) {
+    $Exists = $true
+    break
+  }
+}
+if (-not $Exists) {
+  $Next = if ($Entries.Count -eq 0) { $Path } else { ($Entries + $Path) -join ';' }
+  [Environment]::SetEnvironmentVariable('Path', $Next, 'User')
+}`
+
+    const ps = spawnSync('powershell', ['-NoProfile', '-Command', command])
+    if (ps.status !== 0) {
+      const message = ps.stderr.toString().trim() || ps.stdout.toString().trim()
+      throw ERR_UNKNOWN('Failed to update user PATH' + (message ? ': ' + message : ''))
+    }
+  }
+
   async _close() {
     await this._teardown()
   }
@@ -337,6 +390,10 @@ class Install extends ReadyResource {
       this.base = null
     }
   }
+}
+
+function escapePowerShellSingleQuoted(str) {
+  return str.replace(/'/g, "''")
 }
 
 module.exports = Install

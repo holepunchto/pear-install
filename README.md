@@ -20,7 +20,7 @@ npx pear-install [link]
 
 - **macOS** — apps to `/Applications`, bins to `/usr/local/bin`
 - **Linux** — apps to `~/Applications`, `~/AppImages`, or `~/.local/bin`; bins to `~/.local/bin`
-- **Windows** — apps and bins installed as MSIX packages
+- **Windows** — apps installed as MSIX packages; bins as `.exe` to `%LOCALAPPDATA%\Microsoft\WindowsApps` and added to the user `PATH`
 
 ## API
 
