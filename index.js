@@ -98,8 +98,8 @@ class Install extends ReadyResource {
         const dest = to
           ? path.join(to, binName + ext)
           : isWindows
-          ? path.join(localAppData, 'Programs', appName, binName + ext)
-          : path.join(home, '.local', 'bin', binName)
+            ? path.join(localAppData, 'Programs', appName, binName + ext)
+            : path.join(home, '.local', 'bin', binName)
         this.targets.push({ filename: binName, ext, dest, isBin: true })
       }
     }
@@ -358,8 +358,7 @@ class Install extends ReadyResource {
     }
   }
 
-  _addToPath(newPath, options = {}) {
-    const { prepend = false } = options
+  _addToPath(newPath) {
     const { configFile, shell } = this._detectShellConfig()
 
     if (process.env.PATH.includes(newPath)) {
@@ -367,11 +366,7 @@ class Install extends ReadyResource {
     }
 
     const isFish = shell === 'fish'
-    const exportLine = isFish
-      ? `\nfish_add_path ${prepend ? '--prepend ' : ''}${newPath}`
-      : prepend
-        ? `\nexport PATH="${newPath}:$PATH"`
-        : `\nexport PATH="$PATH:${newPath}"`
+    const exportLine = isFish ? `\nfish_add_path ${newPath}` : `\nexport PATH="$PATH:${newPath}"`
 
     fs.appendFileSync(configFile, exportLine + '\n', 'utf8')
   }
