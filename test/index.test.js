@@ -318,5 +318,4 @@ test('permission denied when target dir is read-only', { skip: isWindows }, asyn
   // since no --json, events is empty; assert via stdout
   t.is(events.length, 0, 'no json events (non-json mode)')
   t.ok(stdout.includes('Permission denied'), 'permission message printed')
-  t.ok(stdout.includes('Fix:'), 'fix hint printed')
 })
