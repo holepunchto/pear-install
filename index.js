@@ -13,7 +13,6 @@ const Hyperswarm = require('hyperswarm')
 const plink = require('pear-link')
 const PearError = require('pear-errors')
 const ReadyResource = require('ready-resource')
-const addToPath = require('./lib/path.js')
 const { ERR_INVALID_MANIFEST, ERR_NOT_FOUND, ERR_PERMISSION_REQUIRED, ERR_UNKNOWN } = PearError
 
 function ERR_NETWORK_TIMEOUT(msg, info = null) {
@@ -98,11 +97,9 @@ class Install extends ReadyResource {
         const ext = isWindows ? '.exe' : ''
         const dest = to
           ? path.join(to, binName + ext)
-          : isMac
-            ? path.join(home, '.local', 'bin', binName)
-            : isWindows
-              ? path.join(localAppData, 'Programs', appName, binName + ext)
-              : path.join(home, '.local', 'bin', binName)
+          : isWindows
+          ? path.join(localAppData, 'Programs', appName, binName + ext)
+          : path.join(home, '.local', 'bin', binName)
         this.targets.push({ filename: binName, ext, dest, isBin: true })
       }
     }
@@ -226,7 +223,7 @@ class Install extends ReadyResource {
           throw err
         }
         fs.chmodSync(dest, 0o755)
-        if (!isWindows) addToPath(path.join(os.homedir(), '.local', 'bin'))
+        if (!isWindows) this._addToPath(path.join(os.homedir(), '.local', 'bin'))
       } else {
         try {
           await fs.promises.rename(from, dest)
@@ -359,6 +356,47 @@ class Install extends ReadyResource {
       } catch {}
       this.base = null
     }
+  }
+
+  _addToPath(newPath, options = {}) {
+    const { prepend = false } = options
+    const { configFile, shell } = this._detectShellConfig()
+
+    if (process.env.PATH.includes(newPath)) {
+      return
+    }
+
+    const isFish = shell === 'fish'
+    const exportLine = isFish
+      ? `\nfish_add_path ${prepend ? '--prepend ' : ''}${newPath}`
+      : prepend
+        ? `\nexport PATH="${newPath}:$PATH"`
+        : `\nexport PATH="$PATH:${newPath}"`
+
+    fs.appendFileSync(configFile, exportLine + '\n', 'utf8')
+  }
+
+  _detectShellConfig() {
+    const home = os.homedir()
+    const shell = path.basename(process.env.SHELL)
+
+    const configCandidates = {
+      zsh: ['.zshrc', '.zprofile'],
+      bash: isMac
+        ? ['.bash_profile', '.bashrc', '.profile']
+        : ['.bashrc', '.bash_profile', '.profile'],
+      fish: ['.config/fish/config.fish'],
+      ksh: ['.kshrc', '.profile'],
+      tcsh: ['.tcshrc', '.cshrc'],
+      csh: ['.cshrc', '.tcshrc'],
+      sh: ['.profile']
+    }
+
+    const candidates = configCandidates[shell] ?? ['.profile']
+    const existing = candidates.find((f) => fs.existsSync(path.join(home, f)))
+    const configFile = path.join(home, existing ?? candidates[0])
+
+    return { configFile, shell }
   }
 }
 
