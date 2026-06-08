@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 const pkg = require('./package.json')
+const process = require('process')
 const { isWindows } = require('which-runtime')
 const { command, arg, bail } = require('paparam')
 const { runner } = require('./cmd')

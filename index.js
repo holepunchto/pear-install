@@ -13,6 +13,7 @@ const Hyperswarm = require('hyperswarm')
 const plink = require('pear-link')
 const PearError = require('pear-errors')
 const ReadyResource = require('ready-resource')
+const addToPath = require('./lib/path.js')
 const { ERR_INVALID_MANIFEST, ERR_NOT_FOUND, ERR_PERMISSION_REQUIRED, ERR_UNKNOWN } = PearError
 
 function ERR_NETWORK_TIMEOUT(msg, info = null) {
@@ -72,19 +73,9 @@ class Install extends ReadyResource {
 
     await this.drive.ready()
     this.doneFinding = this.drive.findingPeers()
-    const topic = this.swarm.join(this.drive.discoveryKey, { server: false, client: true })
+    this.swarm.join(this.drive.discoveryKey, { server: false, client: true })
     this.swarm.on('connection', (c) => this.corestore.replicate(c))
 
-    let serving = false
-    this.swarm.dht.on('nat-update', () => {
-      if (!this.swarm.dht.randomized && !serving) {
-        serving = true
-        this.swarm
-          .join(this.drive.discoveryKey, { server: true, client: false })
-          .flushed()
-          .then(() => topic.destroy())
-      }
-    })
     const deferred = Promise.withResolvers()
     const countdown = setTimeout(() => {
       deferred.reject(ERR_NETWORK_TIMEOUT('Network Timeout ' + timeout / 1000 + 's'))
@@ -108,7 +99,7 @@ class Install extends ReadyResource {
         const dest = to
           ? path.join(to, binName + ext)
           : isMac
-            ? path.join('/', 'usr', 'local', 'bin', binName)
+            ? path.join(home, '.local', 'bin', binName)
             : isWindows
               ? path.join(localAppData, 'Programs', appName, binName + ext)
               : path.join(home, '.local', 'bin', binName)
@@ -230,24 +221,19 @@ class Install extends ReadyResource {
         } catch (err) {
           if (err.code === 'EACCES' || err.code === 'EPERM') {
             const dir = path.dirname(dest)
-            const fix = isMac
-              ? `sudo chgrp admin ${dir} && sudo chmod g+w ${dir}`
-              : `sudo chown -R "$(id -un):$(id -gn)" ${dir}`
-            throw ERR_PERMISSION_REQUIRED(`Permission denied: ${dest}\n  Fix: ${fix}`)
+            throw ERR_PERMISSION_REQUIRED(`Permission denied: ${dest}\n`)
           }
           throw err
         }
         fs.chmodSync(dest, 0o755)
+        if (!isWindows) addToPath(path.join(os.homedir(), '.local', 'bin'))
       } else {
         try {
           await fs.promises.rename(from, dest)
         } catch (err) {
           if (err.code === 'EACCES' || err.code === 'EPERM') {
             const dir = path.dirname(dest)
-            const fix = isMac
-              ? `sudo chgrp admin ${dir} && sudo chmod g+w ${dir}`
-              : `sudo chown -R "$(id -un):$(id -gn)" ${dir}`
-            throw ERR_PERMISSION_REQUIRED(`Permission denied: ${dest}\n  Fix: ${fix}`)
+            throw ERR_PERMISSION_REQUIRED(`Permission denied: ${dest}\n`)
           }
           throw err
         }
