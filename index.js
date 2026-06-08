@@ -361,12 +361,13 @@ class Install extends ReadyResource {
   _addToPath(newPath) {
     const { configFile, shell } = this._detectShellConfig()
 
-    if (process.env.PATH.includes(newPath)) {
-      return
-    }
-
     const isFish = shell === 'fish'
     const exportLine = isFish ? `\nfish_add_path ${newPath}` : `\nexport PATH="$PATH:${newPath}"`
+
+    const content = fs.existsSync(configFile) ? fs.readFileSync(configFile, 'utf8') : ''
+    if (process.env.PATH.includes(newPath) || content.includes(exportLine)) {
+      return
+    }
 
     fs.appendFileSync(configFile, exportLine + '\n', 'utf8')
   }
