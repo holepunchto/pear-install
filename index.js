@@ -38,6 +38,7 @@ class Install extends ReadyResource {
     this.to = to
     this.bootstrap = bootstrap
     this.timeout = timeout
+    this.state = null
     this.targets = []
     this.base = null
     this.drive = null
@@ -55,52 +56,49 @@ class Install extends ReadyResource {
     }
   }
   async _install() {
-    const parsed = this._parseLink()
+    const { bootstrap, link, only, timeout, to } = this
+    const parsed = this._parseLink(link)
     const host = process.platform + '-' + process.arch
-    this.emit('installing', { link: this.link, host })
+    this.emit('installing', { link, host })
 
-    await this._openDrive(parsed)
-    const state = await this._readManifestState()
+    await this._openDrive({ bootstrap, timeout, parsed })
+    this.state = await this._readManifestState()
+    const { bin, name } = this.state
     const appPath = '/by-arch/' + host + '/app/'
-    const present = await this._readPresent(appPath)
+    const present = await this._readDriveContents(appPath)
 
-    this.targets = this._resolveTargets(state)
-    this._assertRequiredTargets(parsed, appPath, present, this.targets, !!state.bin)
+    this.targets = this._resolveTargets()
+    this._assertRequiredTargets({
+      appPath,
+      hasBin: !!bin,
+      only,
+      parsed,
+      present,
+      targets: this.targets
+    })
     this.targets = this.targets.filter(({ filename, ext }) => present.has(filename + ext))
 
-    const { exists, installs } = this._partitionTargets(this.targets, state.name)
-    if (installs.length === 0) throw this._existingTargetsError(exists)
+    const { exists, installs } = this._partitionTargets(this.targets, name)
 
     const tmp = await this._mirrorTargets(appPath, installs)
-    const installed = await this._installTargets({
-      appPath,
-      host,
-      installs,
-      parsed,
-      state,
-      tmp
-    })
-
-    if (installed === 0) {
-      throw ERR_UNKNOWN('Failed to install')
-    }
+    const installed = await this._installTargets({ appPath, host, installs, parsed, tmp })
 
     this.emit('final', { success: true, installed, exists })
   }
 
-  _parseLink() {
-    const parsed = plink.parse(this.link)
+  _parseLink(link) {
+    const parsed = plink.parse(link)
     if (parsed.pathname) throw new Error('Link must not have pathname')
     return parsed
   }
 
-  async _openDrive(parsed) {
+  async _openDrive({ bootstrap, timeout, parsed }) {
     const rand = crypto.randomBytes(16).toString('hex')
     this.base = path.join(PEAR_DIR, 'gc', rand)
     fs.mkdirSync(this.base, { recursive: true })
 
     if (this._ownCorestore) this.corestore = new Corestore(this.base)
-    if (this._ownSwarm) this.swarm = new Hyperswarm({ bootstrap: this.bootstrap })
+    if (this._ownSwarm) this.swarm = new Hyperswarm({ bootstrap })
 
     this.drive = new Hyperdrive(this.corestore.session(), parsed.drive.key)
 
@@ -109,14 +107,14 @@ class Install extends ReadyResource {
     this.swarm.join(this.drive.discoveryKey, { server: false, client: true })
     this.swarm.on('connection', (c) => this.corestore.replicate(c))
 
-    await this._waitForUpdate()
+    await this._waitForUpdate(timeout)
   }
 
-  async _waitForUpdate() {
+  async _waitForUpdate(timeout = this.timeout) {
     const deferred = Promise.withResolvers()
     const countdown = setTimeout(() => {
-      deferred.reject(ERR_NETWORK_TIMEOUT('Network Timeout ' + this.timeout / 1000 + 's'))
-    }, this.timeout)
+      deferred.reject(ERR_NETWORK_TIMEOUT('Network Timeout ' + timeout / 1000 + 's'))
+    }, timeout)
 
     await Promise.race([this.drive.core.update({ wait: true }), deferred.promise])
     clearTimeout(countdown)
@@ -139,15 +137,18 @@ class Install extends ReadyResource {
     }
   }
 
-  _resolveTargets({ appName, bin, home, localAppData, name }) {
+  _resolveTargets() {
+    const { appName, bin, home, localAppData, name } = this.state
+    const to = this.to
+
     const targets = []
 
     if (bin) {
       const bins = typeof bin === 'string' ? { [name]: bin } : bin
       for (const binName of Object.keys(bins)) {
         const ext = isWindows ? '.exe' : ''
-        const dest = this.to
-          ? path.join(this.to, binName + ext)
+        const dest = to
+          ? path.join(to, binName + ext)
           : isWindows
             ? path.join(localAppData, 'Programs', appName, binName + ext)
             : path.join(home, '.local', 'bin', binName)
@@ -158,8 +159,8 @@ class Install extends ReadyResource {
     const ext = isMac ? '.app' : isWindows ? '.msix' : '.AppImage'
     const dest = isWindows
       ? null
-      : this.to
-        ? path.join(this.to, appName + ext)
+      : to
+        ? path.join(to, appName + ext)
         : isMac
           ? path.join('/', 'Applications', appName + ext)
           : fs.existsSync(path.join(home, 'Applications'))
@@ -172,15 +173,15 @@ class Install extends ReadyResource {
     return targets
   }
 
-  async _readPresent(appPath) {
+  async _readDriveContents(appPath) {
     const present = new Set()
     for await (const name of this.drive.readdir(appPath)) present.add(name)
     return present
   }
 
-  _assertRequiredTargets(parsed, appPath, present, targets, hasBin) {
-    const required = this.only
-      ? this.only
+  _assertRequiredTargets({ appPath, hasBin, only, parsed, present, targets }) {
+    const required = only
+      ? only
           .split(',')
           .map((s) => s.trim())
           .filter(Boolean)
@@ -208,6 +209,14 @@ class Install extends ReadyResource {
       installs.push(target)
     }
 
+    if (installs.length === 0) {
+      const lines = exists.map(({ filename, dest }) => '  ' + (dest ?? filename))
+      const header = isWindows ? 'Already installed:' : 'Refusing to overwrite existing:'
+      throw ERR_EXISTS(
+        `${header}\n${lines.join('\n')}\nTo reinstall, manually remove then rerun command`
+      )
+    }
+
     return { exists, installs }
   }
 
@@ -219,14 +228,6 @@ class Install extends ReadyResource {
       `$null -ne (Get-AppxPackage -Name '${escName}' -ErrorAction SilentlyContinue)`
     ])
     return ps.stdout.toString().trim() === 'True'
-  }
-
-  _existingTargetsError(exists) {
-    const lines = exists.map(({ filename, dest }) => '  ' + (dest ?? filename))
-    const header = isWindows ? 'Already installed:' : 'Refusing to overwrite existing:'
-    return ERR_EXISTS(
-      `${header}\n${lines.join('\n')}\nTo reinstall, manually remove then rerun command`
-    )
   }
 
   async _mirrorTargets(appPath, installs) {
@@ -247,37 +248,42 @@ class Install extends ReadyResource {
     return tmp
   }
 
-  async _installTargets({ appPath, host, installs, parsed, state, tmp }) {
+  async _installTargets({ appPath, host, installs, parsed, tmp }) {
     let installed = 0
     const exes = new Set()
 
     for (const target of installs) {
-      await this._installTarget({ appPath, exes, host, parsed, state, target, tmp })
+      await this._installTarget({ appPath, exes, host, parsed, target, tmp })
       installed++
     }
 
     for (const dest of exes) this._exe(path.dirname(dest))
 
+    if (installed === 0) throw ERR_UNKNOWN('Failed to install')
+
     return installed
   }
 
-  async _installTarget({ appPath, exes, host, parsed, state, target, tmp }) {
+  async _installTarget({ appPath, exes, host, parsed, target, tmp }) {
     const { filename, ext, dest, isBin } = target
+    const {
+      state: { home, name, upgrade, version }
+    } = this
     const key = appPath + filename + ext
     const verlink = plink.serialize({ drive: this.drive.core })
 
     this.emit('app', {
       app: filename,
-      name: state.name,
-      version: state.version,
-      upgrade: state.upgrade,
+      name,
+      version,
+      upgrade,
       verlink,
       key,
       tmp,
       dest
     })
 
-    const from = path.join(tmp, 'by-arch', host, 'app', filename + ext)
+    const from = this._installSource(tmp, host, filename, ext)
     if (fs.existsSync(from) === false) {
       throw ERR_NOT_FOUND(plink.serialize({ ...parsed, pathname: key }))
     }
@@ -291,21 +297,19 @@ class Install extends ReadyResource {
     if (ext === '.exe') exes.add(dest)
 
     if (isBin) {
-      this._installBin(from, dest)
+      this._installBin({ dest, from })
       return
     }
 
-    await this._installApp(from, dest, filename, state.home, tmp)
+    await this._installApp({ dest, filename, from, home, tmp })
   }
 
-  _installBin(from, dest) {
+  _installBin({ dest, from }) {
     try {
       if (!this.to) fs.mkdirSync(path.dirname(dest), { recursive: true })
       this._move(from, dest)
     } catch (err) {
-      if (err.code === 'EACCES' || err.code === 'EPERM') {
-        throw ERR_PERMISSION_REQUIRED(`Permission denied: ${dest}\n`)
-      }
+      if (err.code === 'EACCES' || err.code === 'EPERM') throw this._permissionRequired(dest)
       throw err
     }
 
@@ -313,17 +317,23 @@ class Install extends ReadyResource {
     if (!isWindows) this._addToPath(path.join(os.homedir(), '.local', 'bin'))
   }
 
-  async _installApp(from, dest, filename, home, tmp) {
+  async _installApp({ dest, filename, from, home, tmp }) {
     try {
       await fs.promises.rename(from, dest)
     } catch (err) {
-      if (err.code === 'EACCES' || err.code === 'EPERM') {
-        throw ERR_PERMISSION_REQUIRED(`Permission denied: ${dest}\n`)
-      }
+      if (err.code === 'EACCES' || err.code === 'EPERM') throw this._permissionRequired(dest)
       throw err
     }
 
     if (isLinux) await this._linux(dest, filename, tmp, home)
+  }
+
+  _installSource(tmp, host, filename, ext) {
+    return path.join(tmp, 'by-arch', host, 'app', filename + ext)
+  }
+
+  _permissionRequired(dest) {
+    return ERR_PERMISSION_REQUIRED(`Permission denied: ${dest}\n`)
   }
 
   async _linux(dest, appName, tmp, home) {
@@ -435,6 +445,7 @@ class Install extends ReadyResource {
       } catch {}
       this.base = null
     }
+    this.state = null
   }
 
   _addToPath(newPath) {
