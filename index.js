@@ -253,7 +253,7 @@ class Install extends ReadyResource {
       installed++
     }
 
-    for (const dest of exes) this._exe(path.dirname(dest))
+    for (const dest of exes) this._addExeToPath(path.dirname(dest))
 
     if (installed === 0) throw ERR_UNKNOWN('Failed to install')
 
@@ -315,14 +315,14 @@ class Install extends ReadyResource {
         throw err
       }
 
-      if (isLinux) await this._linux(dest, filename, tmp, home)
+      if (isLinux) await this._installLinuxApp(dest, filename, tmp, home)
     }
   }
 
-  async _linux(dest, appName, tmp, home) {
+  async _installLinuxApp(dest, appName, tmp, home) {
     fs.chmodSync(dest, 0o755)
     const extracted = path.join(tmp, 'squashfs-root')
-    const desktopPath = this._extract(dest, extracted, tmp, appName + '.desktop')
+    const desktopPath = this._extractAppImage(dest, extracted, tmp, appName + '.desktop')
     const desktop = fs.readFileSync(desktopPath, 'utf8').replace(/^Exec=.*/m, `Exec=${dest}`)
     fs.writeFileSync(desktopPath, desktop)
 
@@ -340,7 +340,7 @@ class Install extends ReadyResource {
     )
   }
 
-  _exe(dir) {
+  _addExeToPath(dir) {
     const read = spawnSync('powershell', [
       '-NoProfile',
       '-Command',
@@ -368,7 +368,7 @@ class Install extends ReadyResource {
     return true
   }
 
-  _extract(appImage, extracted, cwd, file) {
+  _extractAppImage(appImage, extracted, cwd, file) {
     const { status } = spawnSync(appImage, ['--appimage-extract', file], { cwd })
     if (status !== 0) throw new Error('appimage-extract failed')
     const full = path.join(extracted, file)
@@ -387,7 +387,7 @@ class Install extends ReadyResource {
     }
     return exists
       ? target
-      : this._extract(appImage, extracted, cwd, path.relative(extracted, target))
+      : this._extractAppImage(appImage, extracted, cwd, path.relative(extracted, target))
   }
 
   _move(src, dst) {
