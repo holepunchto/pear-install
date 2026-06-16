@@ -305,19 +305,18 @@ class Install extends ReadyResource {
 
       fs.chmodSync(dest, 0o755)
       if (!isWindows) this._addToPath(path.join(os.homedir(), '.local', 'bin'))
-      return
-    }
-
-    try {
-      await fs.promises.rename(from, dest)
-    } catch (err) {
-      if (err.code === 'EACCES' || err.code === 'EPERM') {
-        throw ERR_PERMISSION_REQUIRED(`Permission denied: ${dest}\n`)
+    } else {
+      try {
+        await fs.promises.rename(from, dest)
+      } catch (err) {
+        if (err.code === 'EACCES' || err.code === 'EPERM') {
+          throw ERR_PERMISSION_REQUIRED(`Permission denied: ${dest}\n`)
+        }
+        throw err
       }
-      throw err
-    }
 
-    if (isLinux) await this._linux(dest, filename, tmp, home)
+      if (isLinux) await this._linux(dest, filename, tmp, home)
+    }
   }
 
   async _linux(dest, appName, tmp, home) {
