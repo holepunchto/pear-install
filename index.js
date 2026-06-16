@@ -57,7 +57,10 @@ class Install extends ReadyResource {
   }
   async _install() {
     const { link, only, to, bootstrap, timeout = 30_000 } = this
-    const parsed = this._parseLink(link)
+
+    const parsed = plink.parse(link)
+    if (parsed.pathname) throw new Error('Link must not have pathname')
+
     const host = process.platform + '-' + process.arch
     this.emit('installing', { link, host })
 
@@ -84,12 +87,6 @@ class Install extends ReadyResource {
     const installed = await this._installTargets({ appPath, host, toInstall, parsed, tmp })
 
     this.emit('final', { success: true, installed, exists })
-  }
-
-  _parseLink(link) {
-    const parsed = plink.parse(link)
-    if (parsed.pathname) throw new Error('Link must not have pathname')
-    return parsed
   }
 
   async _openDrive({ bootstrap, timeout, parsed }) {
