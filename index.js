@@ -56,7 +56,7 @@ class Install extends ReadyResource {
     }
   }
   async _install() {
-    const { bootstrap, link, only, timeout, to } = this
+    const { link, only, to, bootstrap, timeout = 30_000 } = this
     const parsed = this._parseLink(link)
     const host = process.platform + '-' + process.arch
     this.emit('installing', { link, host })
@@ -78,10 +78,10 @@ class Install extends ReadyResource {
     })
     this.targets = this.targets.filter(({ filename, ext }) => present.has(filename + ext))
 
-    const { exists, installs } = this._partitionTargets(this.targets, name)
+    const { exists, toInstall } = this._partitionTargets(this.targets, name)
 
-    const tmp = await this._mirrorTargets(appPath, installs)
-    const installed = await this._installTargets({ appPath, host, installs, parsed, tmp })
+    const tmp = await this._mirrorTargets(appPath, toInstall)
+    const installed = await this._installTargets({ appPath, host, toInstall, parsed, tmp })
 
     this.emit('final', { success: true, installed, exists })
   }
@@ -198,7 +198,7 @@ class Install extends ReadyResource {
 
   _partitionTargets(targets, name) {
     const exists = []
-    const installs = []
+    const toInstall = []
 
     for (const target of targets) {
       if (target.ext === '.msix' ? this._hasInstalledMsix(name) : fs.existsSync(target.dest)) {
@@ -206,10 +206,10 @@ class Install extends ReadyResource {
         continue
       }
 
-      installs.push(target)
+      toInstall.push(target)
     }
 
-    if (installs.length === 0) {
+    if (toInstall.length === 0) {
       const lines = exists.map(({ filename, dest }) => '  ' + (dest ?? filename))
       const header = isWindows ? 'Already installed:' : 'Refusing to overwrite existing:'
       throw ERR_EXISTS(
@@ -217,7 +217,7 @@ class Install extends ReadyResource {
       )
     }
 
-    return { exists, installs }
+    return { exists, toInstall }
   }
 
   _hasInstalledMsix(name) {
@@ -230,12 +230,12 @@ class Install extends ReadyResource {
     return ps.stdout.toString().trim() === 'True'
   }
 
-  async _mirrorTargets(appPath, installs) {
+  async _mirrorTargets(appPath, toInstall) {
     const tmp = path.join(this.base, 'targets')
     fs.mkdirSync(tmp, { recursive: true })
 
     const mirror = this.drive.mirror(new LocalDrive(tmp), {
-      prefix: installs.map(({ filename, ext }) => appPath + filename + ext),
+      prefix: toInstall.map(({ filename, ext }) => appPath + filename + ext),
       prune: false,
       progress: true,
       dedup: true
@@ -248,11 +248,11 @@ class Install extends ReadyResource {
     return tmp
   }
 
-  async _installTargets({ appPath, host, installs, parsed, tmp }) {
+  async _installTargets({ appPath, host, toInstall, parsed, tmp }) {
     let installed = 0
     const exes = new Set()
 
-    for (const target of installs) {
+    for (const target of toInstall) {
       await this._installTarget({ appPath, exes, host, parsed, target, tmp })
       installed++
     }
