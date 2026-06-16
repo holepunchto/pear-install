@@ -57,7 +57,6 @@ class Install extends ReadyResource {
   }
   async _install() {
     const { link, only, to, bootstrap, timeout = 30_000 } = this
-
     const parsed = plink.parse(link)
     if (parsed.pathname) throw new Error('Link must not have pathname')
 
@@ -280,7 +279,7 @@ class Install extends ReadyResource {
       dest
     })
 
-    const from = this._installSource(tmp, host, filename, ext)
+    const from = path.join(tmp, 'by-arch', host, 'app', filename + ext)
     if (fs.existsSync(from) === false) {
       throw ERR_NOT_FOUND(plink.serialize({ ...parsed, pathname: key }))
     }
@@ -294,43 +293,31 @@ class Install extends ReadyResource {
     if (ext === '.exe') exes.add(dest)
 
     if (isBin) {
-      this._installBin({ dest, from })
+      try {
+        if (!this.to) fs.mkdirSync(path.dirname(dest), { recursive: true })
+        this._move(from, dest)
+      } catch (err) {
+        if (err.code === 'EACCES' || err.code === 'EPERM') {
+          throw ERR_PERMISSION_REQUIRED(`Permission denied: ${dest}\n`)
+        }
+        throw err
+      }
+
+      fs.chmodSync(dest, 0o755)
+      if (!isWindows) this._addToPath(path.join(os.homedir(), '.local', 'bin'))
       return
     }
 
-    await this._installApp({ dest, filename, from, home, tmp })
-  }
-
-  _installBin({ dest, from }) {
-    try {
-      if (!this.to) fs.mkdirSync(path.dirname(dest), { recursive: true })
-      this._move(from, dest)
-    } catch (err) {
-      if (err.code === 'EACCES' || err.code === 'EPERM') throw this._permissionRequired(dest)
-      throw err
-    }
-
-    fs.chmodSync(dest, 0o755)
-    if (!isWindows) this._addToPath(path.join(os.homedir(), '.local', 'bin'))
-  }
-
-  async _installApp({ dest, filename, from, home, tmp }) {
     try {
       await fs.promises.rename(from, dest)
     } catch (err) {
-      if (err.code === 'EACCES' || err.code === 'EPERM') throw this._permissionRequired(dest)
+      if (err.code === 'EACCES' || err.code === 'EPERM') {
+        throw ERR_PERMISSION_REQUIRED(`Permission denied: ${dest}\n`)
+      }
       throw err
     }
 
     if (isLinux) await this._linux(dest, filename, tmp, home)
-  }
-
-  _installSource(tmp, host, filename, ext) {
-    return path.join(tmp, 'by-arch', host, 'app', filename + ext)
-  }
-
-  _permissionRequired(dest) {
-    return ERR_PERMISSION_REQUIRED(`Permission denied: ${dest}\n`)
   }
 
   async _linux(dest, appName, tmp, home) {
