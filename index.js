@@ -107,12 +107,14 @@ class Install extends ReadyResource {
   }
 
   async _waitForUpdate(timeout = this.timeout) {
-    const deferred = Promise.withResolvers()
-    const countdown = setTimeout(() => {
-      deferred.reject(ERR_NETWORK_TIMEOUT('Network Timeout ' + timeout / 1000 + 's'))
-    }, timeout)
+    let countdown = null
+    const deferred = new Promise((_, reject) => {
+      countdown = setTimeout(() => {
+        reject(ERR_NETWORK_TIMEOUT('Network Timeout ' + timeout / 1000 + 's'))
+      }, timeout)
+    })
 
-    await Promise.race([this.drive.core.update({ wait: true }), deferred.promise])
+    await Promise.race([this.drive.core.update({ wait: true }), deferred])
     clearTimeout(countdown)
   }
 

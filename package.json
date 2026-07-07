@@ -49,7 +49,7 @@
     "summary": "Install applications from peers",
     "description": "Installs from peers directly into OS application folder",
     "flag --only <paths>": "Advanced. Filter by app filenames",
-    "flag --timeout seconds": "Advanced. Override network timeout (30s)",
+    "flag --timeout <seconds>": "Advanced. Override network timeout (30s)",
     "flag --to <dir>": "Advanced. Override install target directory",
     "flag --dht-bootstrap <nodes>": "Advanced. Custom DHT bootstrap",
     "flag --json": "Newline delimited JSON output"
