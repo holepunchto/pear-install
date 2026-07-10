@@ -89,7 +89,7 @@ On Windows, PowerShell:
 irm install.pears.com/pear.ps1 | iex
 ```
 
-The shell scripts can be used as boilerplates for other projects by updating `base` variable to your own domain that you'll host the shell scripts on, update the `name` variable and rename the file to the name of your project.
+Both scripts double as boilerplate for other projects. To reuse: set base to the domain you'll host from, set name to your binary's name, and rename the file to match (<project>.sh / <project>.ps1).
 
 ## Command Integration: `/cmd`
 
