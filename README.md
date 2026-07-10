@@ -73,6 +73,24 @@ await corestore.close()
 - `path` → `{ dir }` — Windows only; emitted when a bin directory is appended to the User `PATH`
 - `final` → `{ success, installed, exists }`
 
+## Web Bootstrap Shell Scripts
+
+The `pear.sh` and `pear.ps1` files are for installing pear over HTTPS for zero external dependency setup.
+
+On macOS and Linux:
+
+```sh
+curl install.pears.com/pear.sh | sh
+```
+
+On Windows, PowerShell:
+
+```powershell
+irm install.pears.com/pear.ps1 | iex
+```
+
+The shell scripts be used as boilerplates for other projects by updating `base` variable to your own domain that you'll host the shell scripts on, update the `name` variable and rename the file to the name of your project.
+
 ## Command Integration: `/cmd`
 
 For embedding in another CLI. Wraps `Install` as a `pear-opstream` of `{ tag, data }` records with stdout formatters.
