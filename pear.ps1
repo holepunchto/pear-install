@@ -31,7 +31,7 @@ $entries = $path -split ';' | Where-Object { $_ }
 if ($entries -notcontains $dir) {
   $next = if ($path) { "$path;$dir" } else { $dir }
   [Environment]::SetEnvironmentVariable('Path', $next, 'User')
-  Write-Host "Added $dir to User PATH — restart your shell."
+  Write-Host "Added $dir to User PATH - restart your shell."
 }
 
 Write-Host "Installed $name to $target"
