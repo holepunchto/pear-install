@@ -319,3 +319,19 @@ test('permission denied when target dir is read-only', { skip: isWindows }, asyn
   t.is(events.length, 0, 'no json events (non-json mode)')
   t.ok(stdout.includes('Permission denied'), 'permission message printed')
 })
+
+test('_detectShellConfig does not throw when SHELL is unset', { skip: isWindows }, function (t) {
+  const install = new Install({ link: 'pear://x' })
+  let cfg
+  t.execution(() => {
+    cfg = install._detectShellConfig(undefined)
+  }, 'does not throw with SHELL unset')
+  t.is(cfg.shell, '', 'shell falls back to empty string')
+  t.ok(cfg.configFile.endsWith('.profile'), 'defaults to ~/.profile config file')
+})
+
+test('_detectShellConfig derives shell name from SHELL', { skip: isWindows }, function (t) {
+  const install = new Install({ link: 'pear://x' })
+  const cfg = install._detectShellConfig('/usr/bin/zsh')
+  t.is(cfg.shell, 'zsh', 'shell basename extracted from SHELL')
+})

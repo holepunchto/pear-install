@@ -434,7 +434,7 @@ class Install extends ReadyResource {
   }
 
   _addToPath(newPath) {
-    const { configFile, shell } = this._detectShellConfig()
+    const { configFile, shell } = this._detectShellConfig(process.env.SHELL)
 
     const isFish = shell === 'fish'
     const exportLine = isFish ? `\nfish_add_path ${newPath}` : `\nexport PATH="$PATH:${newPath}"`
@@ -447,9 +447,9 @@ class Install extends ReadyResource {
     fs.appendFileSync(configFile, exportLine + '\n', 'utf8')
   }
 
-  _detectShellConfig() {
+  _detectShellConfig(shellPath) {
     const home = os.homedir()
-    const shell = path.basename(process.env.SHELL)
+    const shell = shellPath ? path.basename(shellPath) : ''
 
     const configCandidates = {
       zsh: ['.zshrc', '.zprofile'],
