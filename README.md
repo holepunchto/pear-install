@@ -18,7 +18,7 @@ npx pear-install [link]
 
 ### Default install destinations
 
-- **macOS** — apps to `/Applications`, bins to `/usr/local/bin`
+- **macOS** — apps to `/Applications`, bins to `~/.local/bin`
 - **Linux** — apps to `~/Applications`, `~/AppImages`, or `~/.local/bin`; bins to `~/.local/bin`
 - **Windows** — apps installed as MSIX packages; bins (`.exe`) to `%LOCALAPPDATA%\Programs\<app>\` with the install directory added to the User `PATH`
 
@@ -75,21 +75,27 @@ await corestore.close()
 
 ## Web Bootstrap Shell Scripts
 
-The `pear.sh` and `pear.ps1` files are for installing pear over HTTPS for zero external dependency setup.
+The `pear.sh` and `pear.ps1` files install the `pear` binary over HTTPS with zero external dependencies. Each fetches `checksums.sha256`, downloads the binary for the detected OS/arch, verifies its SHA-256 before moving it into place, and adds the install directory to `PATH`.
 
-On macOS and Linux:
+On macOS and Linux (installs to `~/.local/bin`):
 
 ```sh
 curl install.pears.com/pear.sh | sh
 ```
 
-On Windows, PowerShell:
+On Windows, PowerShell (installs to `%LOCALAPPDATA%\Programs\pear\`):
 
 ```powershell
 irm install.pears.com/pear.ps1 | iex
 ```
 
-Both scripts double as boilerplate for other projects. To reuse: set base to the domain you'll host from, set name to your binary's name, and rename the file to match (<project>.sh / <project>.ps1).
+Both scripts double as boilerplate for other projects. To reuse:
+
+- set `base` to the domain you'll host from
+- set `name` to your binary's name
+- rename the file to match (`<name>.sh` / `<name>.ps1`)
+
+Host the per-OS/arch binaries and `checksums.sha256` under `<domain>/<name>/`, mirroring the paths the script requests (e.g. `<domain>/<name>/darwin-arm64/app/<name>`).
 
 ## Command Integration: `/cmd`
 
