@@ -80,13 +80,13 @@ The `pear.sh` and `pear.ps1` files install the `pear` binary over HTTPS with zer
 On macOS and Linux (installs to `~/.local/bin`):
 
 ```sh
-curl install.pears.com/pear.sh | sh
+curl https://install.pears.com/pear.sh | sh
 ```
 
 On Windows, PowerShell (installs to `%LOCALAPPDATA%\Programs\pear\`):
 
 ```powershell
-irm install.pears.com/pear.ps1 | iex
+irm https://install.pears.com/pear.ps1 | iex
 ```
 
 Both scripts double as boilerplate for other projects. To reuse:
