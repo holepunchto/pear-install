@@ -5,7 +5,7 @@ const fs = require('fs')
 const { spawn } = require('child_process')
 const process = require('process')
 const tmp = require('test-tmp')
-const { isWindows } = require('which-runtime')
+const { isMac, isWindows } = require('which-runtime')
 const InstallCmd = require('../cmd')
 
 const PEAR_KEY = 'pear://smw4thqaqed9iq6bae7a9cxd4fesruixgkafe38jny33ahs33igy'
@@ -17,7 +17,10 @@ test(
   async function (t) {
     t.timeout(900_000)
 
-    const dir = await tmp(t)
+    // darwin os.tmpdir() (/var/folders/<hash>/T) is 56 chars, leaving no room for
+    // HOME: the sidecar's $HOME/Library/Application Support/pear/pear.sock must fit
+    // the 103 char unix socket path limit
+    const dir = await tmp(t, { dir: isMac ? '/tmp' : undefined })
     const installDir = path.join(dir, 'install')
     const homeDir = path.join(dir, 'home')
     const installedPear = path.join(installDir, pearExe)
@@ -58,7 +61,7 @@ test(
         env
       })
     )
-    const boot = await waitForOutput(sidecar, /Current process is now Sidecar|Sidecar Booting/)
+    const boot = await waitForOutput(sidecar, /Sidecar Booted/)
     t.ok(boot, 'sidecar booted')
     await shutdownSidecar(t, installedPear, { cwd: dir, env })
     await terminate(sidecar)
