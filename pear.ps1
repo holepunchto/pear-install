@@ -10,13 +10,7 @@ $ErrorActionPreference = 'Stop'
 $base = 'https://install.pears.com'
 $name = 'pear'
 
-$arch = switch ($env:PROCESSOR_ARCHITECTURE) {
-  'AMD64' { 'x64' }
-  'ARM64' { 'arm64' }
-  default { throw "Unsupported arch: $env:PROCESSOR_ARCHITECTURE" }
-}
-
-$url = "$base/$name/win32-$arch/app/$name.exe"
+$url = "$base/$name/win32-x64/app/$name.exe"
 $dir = Join-Path $env:LOCALAPPDATA "Programs\$name"
 $target = Join-Path $dir "$name.exe"
 $tmp = Join-Path $env:LOCALAPPDATA "Temp\$name.download.exe"
@@ -28,7 +22,7 @@ if (Test-Path $target) {
 Write-Host "Installing $name"
 
 $sums = Invoke-RestMethod -Uri "$base/$name/checksums.sha256"
-$expect = $sums -split "`n" | Where-Object { $_ -match "win32-$arch" } | ForEach-Object { ($_ -split '\s+')[0] }
+$expect = $sums -split "`n" | Where-Object { $_ -match "win32-x64" } | ForEach-Object { ($_ -split '\s+')[0] }
 if (-not $expect) {
   throw "Missing checksums.sha256 at $base/$name"
 }
