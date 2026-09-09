@@ -155,20 +155,20 @@ class Install extends ReadyResource {
     }
 
     const ext = isMac ? '.app' : isWindows ? '.msix' : '.AppImage'
-    const dest = isWindows
-      ? null
-      : to
-        ? path.join(to, appName + ext)
-        : isMac
-          ? path.join('/', 'Applications', appName + ext)
-          : fs.existsSync(path.join(home, 'Applications'))
-            ? path.join(home, 'Applications', appName + ext)
-            : fs.existsSync(path.join(home, 'AppImages'))
-              ? path.join(home, 'AppImages', appName + ext)
-              : path.join(home, '.local', 'bin', appName + ext)
+    const dest = this._resolveAppDest(appName + ext, home)
 
     targets.push({ filename: appName, ext, dest, isBin: false })
     return targets
+  }
+
+  _resolveAppDest(filename, home) {
+    if (isWindows) return null
+    if (this.to) return path.join(this.to, filename)
+    if (isMac) return path.join(home, 'Applications', filename)
+    const candidates = [path.join(home, 'Applications'), path.join(home, 'AppImages')]
+    const dir =
+      candidates.find((candidate) => fs.existsSync(candidate)) ?? path.join(home, '.local', 'bin')
+    return path.join(dir, filename)
   }
 
   async _readDriveContents(appPath) {
