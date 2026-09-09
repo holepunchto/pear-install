@@ -166,7 +166,8 @@ class Install extends ReadyResource {
     if (this.to) return path.join(this.to, filename)
     if (isMac) return path.join(home, 'Applications', filename)
     const candidates = [path.join(home, 'Applications'), path.join(home, 'AppImages')]
-    const dir = candidates.find((candidate) => fs.existsSync(candidate)) ?? path.join(home, '.local', 'bin')
+    const dir =
+      candidates.find((candidate) => fs.existsSync(candidate)) ?? path.join(home, '.local', 'bin')
     return path.join(dir, filename)
   }
 
