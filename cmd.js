@@ -30,6 +30,7 @@ class InstallCmd extends Opstream {
   static async output(json, stream) {
     let status = false
     for await (const { tag, data } of stream) {
+      if (tag === 'final' && data.success === false) process.exitCode = 1
       if (json) {
         process.stdout.write(JSON.stringify({ cmd: 'install', tag, data }) + '\n')
         continue
