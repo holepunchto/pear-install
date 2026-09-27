@@ -67,6 +67,8 @@ class Install extends ReadyResource {
     this.state = await this._readManifestState()
     const { bin, name } = this.state
     const appPath = '/by-arch/' + host + '/app/'
+    const supported = await this._readDriveContents('/by-arch/')
+    if (supported.size && !supported.has(host)) throw ERR_NOT_FOUND(host + ' is not supported.')
     const present = await this._readDriveContents(appPath)
 
     this.targets = this._resolveTargets()
