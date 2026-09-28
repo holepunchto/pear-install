@@ -21,7 +21,7 @@ class InstallCmd extends Opstream {
       return `[ Peers: ${peers} ]${dl}`
     },
     path: ({ dir }) => `Added to User PATH: ${dir}\n  Restart shell for change to take effect.`,
-    error: ({ message }) => `Failed: ${message}`,
+    error: ({ message }) => message,
     final({ success, message }) {
       if (success) return 'Installed'
       return message ?? 'Failed'
@@ -35,7 +35,6 @@ class InstallCmd extends Opstream {
         process.stdout.write(JSON.stringify({ cmd: 'install', tag, data }) + '\n')
         continue
       }
-      if (tag === 'final' && data.success === false) return data
       if (!this.outputs[tag]) continue
       const line = this.outputs[tag](data)
       const clear = status ? '\r\x1B[2K' : ''
