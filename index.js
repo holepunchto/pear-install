@@ -79,7 +79,8 @@ class Install extends ReadyResource {
       parsed,
       present,
       targets: this.targets,
-      unsupportedArch
+      unsupportedArch,
+      supported
     })
     this.targets = this.targets.filter(({ filename, ext }) => present.has(filename + ext))
 
@@ -180,7 +181,16 @@ class Install extends ReadyResource {
     return present
   }
 
-  _assertRequiredTargets({ appPath, hasBin, only, parsed, present, targets, unsupportedArch }) {
+  _assertRequiredTargets({
+    appPath,
+    hasBin,
+    only,
+    parsed,
+    present,
+    targets,
+    unsupportedArch,
+    supported
+  }) {
     const required = only
       ? only
           .split(',')
@@ -195,7 +205,11 @@ class Install extends ReadyResource {
       .map((name) => plink.serialize({ ...parsed, pathname: appPath + name }))
 
     if (missing.length) {
-      const hint = unsupportedArch ? `\n${unsupportedArch} is not supported.` : ''
+      let hint = ''
+      if (unsupportedArch) {
+        const available = [...supported].filter((a) => a !== unsupportedArch).join(', ')
+        hint = `\nTarget platform ${unsupportedArch} is not staged.\nSupported: ${available}`
+      }
       throw ERR_NOT_FOUND('Not found: ' + missing.join(', ') + hint)
     }
   }

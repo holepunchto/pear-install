@@ -175,7 +175,10 @@ test(
     const target = await tmp(t)
     const { stdout } = await run(['--to', target, '--dht-bootstrap', bootstrapArg(testnet), link])
     t.ok(stdout.includes('Not found: pear://'), 'not found message printed')
-    t.ok(stdout.includes(`${arch} is not supported.`), 'unsupported platform hint printed')
+    t.ok(
+      stdout.includes('Target platform ' + arch + ' is not staged.'),
+      'unsupported platform hint printed'
+    )
   }
 )
 
