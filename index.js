@@ -68,7 +68,7 @@ class Install extends ReadyResource {
     const { bin, name } = this.state
     const appPath = '/by-arch/' + host + '/app/'
     const supported = await this._readDriveContents('/by-arch/')
-    if (supported.size && !supported.has(host)) throw ERR_NOT_FOUND(host + ' is not supported.')
+    const unsupportedArch = supported.size && !supported.has(host) ? host : null
     const present = await this._readDriveContents(appPath)
 
     this.targets = this._resolveTargets()
@@ -78,7 +78,8 @@ class Install extends ReadyResource {
       only,
       parsed,
       present,
-      targets: this.targets
+      targets: this.targets,
+      unsupportedArch
     })
     this.targets = this.targets.filter(({ filename, ext }) => present.has(filename + ext))
 
@@ -179,7 +180,7 @@ class Install extends ReadyResource {
     return present
   }
 
-  _assertRequiredTargets({ appPath, hasBin, only, parsed, present, targets }) {
+  _assertRequiredTargets({ appPath, hasBin, only, parsed, present, targets, unsupportedArch }) {
     const required = only
       ? only
           .split(',')
@@ -193,7 +194,10 @@ class Install extends ReadyResource {
       .filter((name) => !present.has(name))
       .map((name) => plink.serialize({ ...parsed, pathname: appPath + name }))
 
-    if (missing.length) throw ERR_NOT_FOUND('Not found: ' + missing.join(', '))
+    if (missing.length) {
+      const hint = unsupportedArch ? `\n${unsupportedArch} is not supported.` : ''
+      throw ERR_NOT_FOUND('Not found: ' + missing.join(', ') + hint)
+    }
   }
 
   _partitionTargets(targets, name) {
