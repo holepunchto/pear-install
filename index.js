@@ -208,7 +208,7 @@ class Install extends ReadyResource {
       let hint = ''
       if (unsupportedArch) {
         const available = [...supported].filter((a) => a !== unsupportedArch).join(', ')
-        hint = `\nTarget platform ${unsupportedArch} is not staged.\nSupported: ${available}`
+        hint = `\nTarget platform ${unsupportedArch} is not staged.\nAvailable: ${available}`
       }
       throw ERR_NOT_FOUND('Not found: ' + missing.join(', ') + hint)
     }
