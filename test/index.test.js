@@ -159,6 +159,21 @@ test(
   }
 )
 
+test('non-json output prints unsupported platform failure', async function (t) {
+  t.timeout(60000)
+  const testnet = await createTestnet(3, t.teardown)
+  const otherArch = arch === 'darwin-arm64' ? 'linux-arm64' : 'darwin-arm64'
+  const key = await seed(t, {
+    bootstrap: testnet.bootstrap,
+    manifest: { name: 'tbin', version: '1.0.0', upgrade: 'pear://x', bin: 'cli.js' },
+    files: { ['/by-arch/' + otherArch + '/app/tbin']: 'BIN' }
+  })
+  const link = plink.serialize({ drive: { key } })
+  const target = await tmp(t)
+  const { stdout } = await run(['--to', target, '--dht-bootstrap', bootstrapArg(testnet), link])
+  t.ok(stdout.includes(`Target platform ${arch} is not staged.\nAvailable: ${otherArch}`), 'hint')
+})
+
 test(
   'non-json output prints Refusing to overwrite for existing target',
   { skip: isWindows },
