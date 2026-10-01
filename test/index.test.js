@@ -174,9 +174,8 @@ test(
     const link = plink.serialize({ drive: { key } })
     const target = await tmp(t)
     const { stdout } = await run(['--to', target, '--dht-bootstrap', bootstrapArg(testnet), link])
-    t.ok(stdout.includes('Not found: pear://'), 'not found message printed')
     t.ok(
-      stdout.includes('Target platform ' + arch + ' is not staged.\nAvailable:'),
+      stdout.includes(`Target platform ${arch} is not staged.\nAvailable: ${otherArch}`),
       'unsupported platform hint printed'
     )
   }
