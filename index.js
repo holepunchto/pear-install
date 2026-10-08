@@ -208,7 +208,7 @@ class Install extends ReadyResource {
       let hint = ''
       if (unsupportedArch) {
         const available = [...supported].join(', ')
-        hint = `\nTarget platform ${unsupportedArch} is not staged.\nAvailable: ${available}`
+        hint = `\nTarget platform ${unsupportedArch} was not found in application drive.\nAvailable: ${available}`
       }
       throw ERR_NOT_FOUND('Not found: ' + missing.join(', ') + hint)
     }

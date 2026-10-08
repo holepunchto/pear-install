@@ -171,7 +171,12 @@ test('non-json output prints unsupported platform failure', async function (t) {
   const link = plink.serialize({ drive: { key } })
   const target = await tmp(t)
   const { stdout } = await run(['--to', target, '--dht-bootstrap', bootstrapArg(testnet), link])
-  t.ok(stdout.includes(`Target platform ${arch} is not staged.\nAvailable: ${otherArch}`), 'hint')
+  t.ok(
+    stdout.includes(
+      `Target platform ${arch} was not found in application drive.\nAvailable: ${otherArch}`
+    ),
+    'hint'
+  )
 })
 
 test(
