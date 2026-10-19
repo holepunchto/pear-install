@@ -50,7 +50,7 @@ class InstallCmd extends Opstream {
   }
 
   static async runner(cmd) {
-    const { json, only, to, dhtBootstrap } = cmd.flags
+    const { json, arch, only, to, dhtBootstrap } = cmd.flags
     const timeout = (cmd.flags.timeout || 30) * 1000
     const link = cmd.args.link ?? pkg.pear.platform.key
     const bootstrap = dhtBootstrap
@@ -61,7 +61,7 @@ class InstallCmd extends Opstream {
           return { host, port: int }
         })
       : undefined
-    const stream = new InstallCmd({ link, only, to, bootstrap, timeout })
+    const stream = new InstallCmd({ link, arch, only, to, bootstrap, timeout })
     await InstallCmd.output(json, stream)
   }
 
