@@ -48,6 +48,7 @@
   "command": {
     "summary": "Install applications from peers",
     "description": "Installs from peers directly into OS application folder",
+    "flag --arch <arch>": "Override target architecture (defaults to runtime architecture)",
     "flag --only <paths>": "Advanced. Filter by app filenames",
     "flag --timeout <seconds>": "Advanced. Override network timeout (30s)",
     "flag --to <dir>": "Advanced. Override install target directory",
