@@ -457,6 +457,9 @@ class Install extends ReadyResource {
   }
 
   _addToPath(newPath) {
+    if (process.env.PEAR_INSTALL_NO_PATH === '1') {
+      return false
+    }
     const { configFile, shell } = this._detectShellConfig(process.env.SHELL)
 
     const isFish = shell === 'fish'

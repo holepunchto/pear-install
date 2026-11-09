@@ -22,6 +22,8 @@ npx pear-install [link]
 - **Linux** — apps to `~/Applications`, `~/AppImages`, or `~/.local/bin`; bins to `~/.local/bin`
 - **Windows** — apps installed as MSIX packages; bins (`.exe`) to `%LOCALAPPDATA%\Programs\<app>\` with the install directory added to the User `PATH`
 
+Set the `PEAR_INSTALL_NO_PATH` environment variable to `1` to disable modifications to the `PATH`.
+
 ## API
 
 ```js
