@@ -14,6 +14,7 @@ npx pear-install [link]
 - `--only <paths>` — comma-separated filenames to install
 - `--timeout <seconds>` — network timeout (default `30`)
 - `--dht-bootstrap <nodes>` — comma-separated `host:port`
+- `--no-path` — do not modify the `PATH`
 - `--json` — newline-delimited JSON output (one `{ cmd: 'install', tag, data }` per line)
 
 ### Default install destinations
@@ -22,7 +23,7 @@ npx pear-install [link]
 - **Linux** — apps to `~/Applications`, `~/AppImages`, or `~/.local/bin`; bins to `~/.local/bin`
 - **Windows** — apps installed as MSIX packages; bins (`.exe`) to `%LOCALAPPDATA%\Programs\<app>\` with the install directory added to the User `PATH`
 
-Set the `PEAR_INSTALL_NO_PATH` environment variable to `1` to disable modifications to the `PATH`.
+Pass `--no-path` to disable modifications to the `PATH`.
 
 ## API
 
@@ -37,6 +38,7 @@ const Install = require('pear-install')
 - `only` _(string, optional)_ — comma-separated filenames
 - `bootstrap` _(array, optional)_ — `[{ host, port }, ...]` DHT nodes
 - `timeout` _(number, optional)_ — milliseconds, default `30000`
+- `path` _(boolean, optional)_ — modify the `PATH`, default `true`; `false` disables it
 - `corestore` _(Corestore, optional)_ — inject an existing corestore; not closed by `install.close()`
 - `swarm` _(Hyperswarm, optional)_ — inject an existing swarm; not destroyed by `install.close()`
 

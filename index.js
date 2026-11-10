@@ -30,7 +30,16 @@ const PEAR_DIR = isMac
     : path.join(os.homedir(), 'AppData', 'Roaming', 'pear')
 
 class Install extends ReadyResource {
-  constructor({ link, only, to, bootstrap, timeout = 30_000, corestore = null, swarm = null }) {
+  constructor({
+    link,
+    only,
+    to,
+    bootstrap,
+    timeout = 30_000,
+    corestore = null,
+    swarm = null,
+    path = true
+  }) {
     super()
     this.doneFinding = null
     this.link = link
@@ -38,6 +47,7 @@ class Install extends ReadyResource {
     this.to = to
     this.bootstrap = bootstrap
     this.timeout = timeout
+    this.modifyPath = path
     this.state = null
     this.targets = []
     this.base = null
@@ -363,9 +373,7 @@ class Install extends ReadyResource {
   }
 
   _addExeToPath(dir) {
-    if (process.env.PEAR_INSTALL_NO_PATH === '1') {
-      return false
-    }
+    if (this.modifyPath === false) return false
     const read = spawnSync('powershell', [
       '-NoProfile',
       '-Command',
@@ -457,9 +465,7 @@ class Install extends ReadyResource {
   }
 
   _addToPath(newPath) {
-    if (process.env.PEAR_INSTALL_NO_PATH === '1') {
-      return false
-    }
+    if (this.modifyPath === false) return false
     const { configFile, shell } = this._detectShellConfig(process.env.SHELL)
 
     const isFish = shell === 'fish'

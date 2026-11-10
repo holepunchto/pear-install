@@ -52,6 +52,7 @@
     "flag --timeout <seconds>": "Advanced. Override network timeout (30s)",
     "flag --to <dir>": "Advanced. Override install target directory",
     "flag --dht-bootstrap <nodes>": "Advanced. Custom DHT bootstrap",
+    "flag --no-path": "Advanced. Do not modify the PATH",
     "flag --json": "Newline delimited JSON output"
   },
   "pear": {

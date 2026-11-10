@@ -10,7 +10,7 @@ const process = require('process')
 const arch = `${process.platform}-${process.arch}`
 
 async function install(cmd) {
-  const { json, only, to, dhtBootstrap } = cmd.flags
+  const { json, only, to, dhtBootstrap, path } = cmd.flags
   const timeout = (cmd.flags.timeout || 30) * 1000
   const link = cmd.args.link
   const bootstrap = dhtBootstrap
@@ -21,7 +21,7 @@ async function install(cmd) {
         return { host, port: int }
       })
     : undefined
-  const stream = new InstallCmd({ link, only, to, bootstrap, timeout })
+  const stream = new InstallCmd({ link, only, to, bootstrap, timeout, path })
   await InstallCmd.output(json, stream)
 }
 
