@@ -10,6 +10,7 @@ npx pear-install [link]
 
 ### Flags
 
+- `--arch <arch>` — target architecture (e.g. `x64` or `arm64`; defaults to `process.arch`)
 - `--to <dir>` — target directory (overrides platform default)
 - `--only <paths>` — comma-separated filenames to install
 - `--timeout <seconds>` — network timeout (default `30`)
@@ -33,6 +34,7 @@ const Install = require('pear-install')
 ### `const install = new Install(opts)`
 
 - `link` _(string)_ — `pear://` link
+- `arch` _(string, optional)_ — target architecture on the current OS; defaults to `process.arch`
 - `to` _(string, optional)_ — target directory
 - `only` _(string, optional)_ — comma-separated filenames
 - `bootstrap` _(array, optional)_ — `[{ host, port }, ...]` DHT nodes
@@ -106,7 +108,7 @@ For embedding in another CLI. Wraps `Install` as a `pear-opstream` of `{ tag, da
 ```js
 const InstallCmd = require('pear-install/cmd')
 
-const stream = new InstallCmd({ link, to, only, bootstrap, timeout })
+const stream = new InstallCmd({ link, arch, to, only, bootstrap, timeout })
 await InstallCmd.output(json, stream)
 ```
 

@@ -30,10 +30,20 @@ const PEAR_DIR = isMac
     : path.join(os.homedir(), 'AppData', 'Roaming', 'pear')
 
 class Install extends ReadyResource {
-  constructor({ link, only, to, bootstrap, timeout = 30_000, corestore = null, swarm = null }) {
+  constructor({
+    link,
+    arch = process.arch,
+    only,
+    to,
+    bootstrap,
+    timeout = 30_000,
+    corestore = null,
+    swarm = null
+  }) {
     super()
     this.doneFinding = null
     this.link = link
+    this.arch = arch
     this.only = only
     this.to = to
     this.bootstrap = bootstrap
@@ -56,11 +66,11 @@ class Install extends ReadyResource {
     }
   }
   async _install() {
-    const { link, only, to, bootstrap, timeout = 30_000 } = this
+    const { link, arch, only, to, bootstrap, timeout = 30_000 } = this
     const parsed = plink.parse(link)
     if (parsed.pathname) throw new Error('Link must not have pathname')
 
-    const host = process.platform + '-' + process.arch
+    const host = process.platform + '-' + arch
     this.emit('installing', { link, host })
 
     await this._openDrive({ bootstrap, timeout, parsed })
