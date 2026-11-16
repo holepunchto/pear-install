@@ -56,6 +56,7 @@ class Install extends ReadyResource {
     this.swarm = swarm
     this._ownCorestore = corestore === null
     this._ownSwarm = swarm === null
+    this.discovery = null
   }
   async _open() {
     try {
@@ -108,14 +109,16 @@ class Install extends ReadyResource {
     fs.mkdirSync(this.base, { recursive: true })
 
     if (this._ownCorestore) this.corestore = new Corestore(this.base)
-    if (this._ownSwarm) this.swarm = new Hyperswarm({ bootstrap })
+    if (this._ownSwarm) {
+      this.swarm = new Hyperswarm({ bootstrap })
+      this.swarm.on('connection', (c) => this.corestore.replicate(c))
+    }
 
     this.drive = new Hyperdrive(this.corestore.session(), parsed.drive.key)
 
     await this.drive.ready()
     this.doneFinding = this.drive.findingPeers()
-    this.swarm.join(this.drive.discoveryKey, { server: false, client: true })
-    this.swarm.on('connection', (c) => this.corestore.replicate(c))
+    this.discovery = this.swarm.join(this.drive.discoveryKey, { server: false, client: true })
 
     await this._waitForUpdate(timeout)
   }
@@ -448,6 +451,10 @@ class Install extends ReadyResource {
     if (this.drive) {
       await this.drive.close()
       this.drive = null
+    }
+    if (this.discovery) {
+      await this.discovery.destroy()
+      this.discovery = null
     }
     if (this.swarm && this._ownSwarm) {
       await this.swarm.destroy()
