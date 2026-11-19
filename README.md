@@ -2,7 +2,7 @@
 
 ## CLI
 
-The published binary. With no `link`, installs the Pear platform. With a `pear://` link, installs that application and/or its binaries.
+The published binary. With no `link`, installs the [`pear`](https://install.pears.com) CLI. With a link, peer-to-peer installs an application.
 
 ```sh
 npx pear-install [link]
@@ -10,7 +10,6 @@ npx pear-install [link]
 
 ### Flags
 
-- `--arch <arch>` — target architecture (e.g. `x64` or `arm64`; defaults to `process.arch`)
 - `--to <dir>` — target directory (overrides platform default)
 - `--only <paths>` — comma-separated filenames to install
 - `--timeout <seconds>` — network timeout (default `30`)
@@ -33,7 +32,7 @@ const Install = require('pear-install')
 
 ### `const install = new Install(opts)`
 
-- `link` _(string)_ — `pear://` link
+- `link` _(string)_ — `pear://` link, `file://` link or local path, or `git+pear://` link
 - `arch` _(string, optional)_ — target architecture on the current OS; defaults to `process.arch`
 - `to` _(string, optional)_ — target directory
 - `only` _(string, optional)_ — comma-separated filenames
@@ -69,11 +68,34 @@ await swarm.destroy()
 await corestore.close()
 ```
 
+### Link Formats
+
+Accepted links:
+
+#### `pear://`
+
+Typical usage. Install an application peer-to-peer from a pear link. Must be a top-level link `pear://<key>` - no pathname. May be immutably versioned: `pear://<fork>.<length>.<key>`.
+
+`pear://` links are parsed by [pear-link](https://github.com/holepunchto/pear-link) per the [Pear Link Format](https://github.com/holepunchto/pear-link#pear-link-format).
+
+#### `file://`
+
+Application development usage, for local run through checks. Install from a deployment folder created with [`pear-build`](https://github.com/holepunchto/pear-build). Absolute and relative paths supported along with `file://` links.
+
+#### `git+pear://`
+
+Advanced usage. Install an application peer-to-peer from source. The app `package.json` must have an `npm run make` scripts that compiles for the host and an `npm run release [...hosts]` that must build an `./out/release` folder which is the deployment folder created with [`pear-build`](https://github.com/holepunchto/pear-build).
+
+In order to use `pear install git+pear://` the system must have `npm`, `git` and [gip](https://github.com/holepunchto/gip-transport) - to enable peer-to-peer `git+pear://` links for `git`. To install `gip` with `pear`: `pear install pear://gipjk71nbuj3zasm4ywczb93zqk5xbfup16c6d5j8w8yeja4ob6o`. To install `gip` with `npx pear-install`: `npx pear-install pear://gipjk71nbuj3zasm4ywczb93zqk5xbfup16c6d5j8w8yeja4ob6o`
+
 ### Events
 
 - `installing` → `{ link, host }`
 - `app` → `{ app, name, version, upgrade, verlink, key, dest }`
 - `stats` → `{ download, upload, peers }`
+- `dependencies` → `{ repo, exec }` - only for install from git+pear:// links
+- `compiling` → `{ repo, exec }` - only for install from git+pear:// links
+- `building` → `{ repo, exec }` - only for install from git+pear:// links
 - `path` → `{ dir }` — Windows only; emitted when a bin directory is appended to the User `PATH`
 - `final` → `{ success, installed, exists }`
 
@@ -117,6 +139,9 @@ await InstallCmd.output(json, stream)
 - `installing` → `{ link, host }`
 - `app` → `{ app, name, version, upgrade, verlink, key, dest }`
 - `stats` → `{ download, upload, peers }`
+- `dependencies` → `{ repo, exec }` - only for install from git+pear:// links
+- `compiling` → `{ repo, exec }` - only for install from git+pear:// links
+- `building` → `{ repo, exec }` - only for install from git+pear:// links
 - `path` → `{ dir }` — Windows only
 - `error` → `{ code, message, stack, info, success: false }`
 - `final` → `{ success, installed, exists }`
