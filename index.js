@@ -2,7 +2,7 @@
 const path = require('path')
 const os = require('os')
 const fs = require('fs')
-const { spawnSync } = require('child_process')
+const { spawnSync, spawn } = require('child_process')
 const process = require('process')
 const LocalDrive = require('localdrive')
 const { isMac, isLinux, isWindows } = require('which-runtime')
@@ -23,6 +23,9 @@ function ERR_EXISTS(msg, info = null) {
   return new PearError(msg, ERR_EXISTS, info)
 }
 
+// How much of a failed build step's output to keep for its error message.
+const TAIL = 8192
+
 const PEAR_DIR = isMac
   ? path.join(os.homedir(), 'Library', 'Application Support', 'pear')
   : isLinux
@@ -38,7 +41,9 @@ class Install extends ReadyResource {
     bootstrap,
     timeout = 30_000,
     corestore = null,
-    swarm = null
+    swarm = null,
+    interactive = true,
+    ref = null
   }) {
     super()
     this.doneFinding = null
@@ -46,6 +51,8 @@ class Install extends ReadyResource {
     this.arch = arch
     this.only = only
     this.to = to
+    this.ref = ref
+    this.interactive = interactive
     this.bootstrap = bootstrap
     this.timeout = timeout
     this.state = null
@@ -65,15 +72,95 @@ class Install extends ReadyResource {
       throw err
     }
   }
-  async _install() {
-    const { link, arch, only, to, bootstrap, timeout = 30_000 } = this
-    const parsed = plink.parse(link)
-    if (parsed.pathname) throw new Error('Link must not have pathname')
 
-    const host = process.platform + '-' + arch
+  async _installFromSource(link, host) {
+    const parsed = plink.parse(link.slice(4))
+    const repo = path.join(this.base, parsed.pathname.slice(1))
+    const release = path.join(repo, 'out', 'release')
+    const consent = this.interactive ? [] : ['--', '-y']
+
+    const run = (command, args, cwd) =>
+      new Promise((resolve, reject) => {
+        const child = spawn(command, args, {
+          stdio: this.interactive ? 'inherit' : ['ignore', 'pipe', 'pipe'],
+          cwd
+        })
+
+        let tail = ''
+        if (!this.interactive) {
+          const keep = (data) => {
+            const text = data.toString()
+            tail = (tail + text).slice(-TAIL)
+            this.emit('output', { command, text })
+          }
+          child.stdout.on('data', keep)
+          child.stderr.on('data', keep)
+        }
+
+        child.once('error', reject)
+
+        child.once('close', (code, signal) => {
+          if (code === 0) return resolve()
+          const why = signal ? `signal ${signal}` : `code ${code}`
+          const detail = tail.trim()
+          reject(new Error(`${command} exited with ${why}${detail ? '\n\n' + detail : ''}`))
+        })
+      })
+
     this.emit('installing', { link, host })
 
-    await this._openDrive({ bootstrap, timeout, parsed })
+    await run('git', ['clone', ...(this.ref ? ['--branch', this.ref] : []), link, repo])
+
+    const which = spawnSync('which', ['npm'], { encoding: 'utf8' })
+    const out = typeof which.stdout === 'string' ? which.stdout : (which.stdout?.toString() ?? '')
+    const npm = out.trim() || 'npm'
+
+    this.emit('dependencies', { repo, exec: 'npm install' })
+    await run(npm, ['install'], repo)
+
+    this.emit('compiling', { repo, exec: 'npm run make' })
+    await run(npm, ['run', 'make', ...consent], repo)
+
+    this.emit('building', { repo, exec: 'npm run release ' + host })
+    await run(npm, ['run', 'release', host], repo)
+
+    return this._install(release)
+  }
+
+  async _install(link = this.link) {
+    const { arch, only, bootstrap, timeout = 30_000 } = this
+    const host = process.platform + '-' + arch
+    const rand = crypto.randomBytes(16).toString('hex')
+    this.base = path.join(PEAR_DIR, 'gc', rand)
+    fs.mkdirSync(this.base, { recursive: true })
+    if (link.startsWith('git+')) {
+      return this._installFromSource(link, host)
+    }
+    const parsed = plink.parse(link)
+    if (parsed.protocol === 'pear:' && parsed.pathname) {
+      throw new Error('Installable pear:// links cannot have pathnames')
+    }
+
+    this.emit('installing', { link, host })
+    let tmp = ''
+    if (parsed.protocol === 'file:') {
+      tmp = decodeURIComponent(parsed.pathname)
+      this.drive = new LocalDrive(tmp)
+      await this.drive.ready()
+    } else {
+      if (this._ownCorestore) this.corestore = new Corestore(this.base)
+      if (this._ownSwarm) this.swarm = new Hyperswarm({ bootstrap })
+
+      this.drive = new Hyperdrive(this.corestore.session(), parsed.drive.key)
+
+      await this.drive.ready()
+      this.doneFinding = this.drive.findingPeers()
+      this.swarm.join(this.drive.discoveryKey, { server: false, client: true })
+      this.swarm.on('connection', (c) => this.corestore.replicate(c))
+
+      await this._waitForUpdate(timeout)
+    }
+
     this.state = await this._readManifestState()
     const { bin, name } = this.state
     const appPath = '/by-arch/' + host + '/app/'
@@ -95,29 +182,9 @@ class Install extends ReadyResource {
     this.targets = this.targets.filter(({ filename, ext }) => present.has(filename + ext))
 
     const { exists, toInstall } = this._partitionTargets(this.targets, name)
-
-    const tmp = await this._mirrorTargets(appPath, toInstall)
+    tmp = tmp || (await this._mirrorTargets(appPath, toInstall))
     const installed = await this._installTargets({ appPath, host, toInstall, parsed, tmp })
-
     this.emit('final', { success: true, installed, exists })
-  }
-
-  async _openDrive({ bootstrap, timeout, parsed }) {
-    const rand = crypto.randomBytes(16).toString('hex')
-    this.base = path.join(PEAR_DIR, 'gc', rand)
-    fs.mkdirSync(this.base, { recursive: true })
-
-    if (this._ownCorestore) this.corestore = new Corestore(this.base)
-    if (this._ownSwarm) this.swarm = new Hyperswarm({ bootstrap })
-
-    this.drive = new Hyperdrive(this.corestore.session(), parsed.drive.key)
-
-    await this.drive.ready()
-    this.doneFinding = this.drive.findingPeers()
-    this.swarm.join(this.drive.discoveryKey, { server: false, client: true })
-    this.swarm.on('connection', (c) => this.corestore.replicate(c))
-
-    await this._waitForUpdate(timeout)
   }
 
   async _waitForUpdate(timeout = this.timeout) {
@@ -176,8 +243,8 @@ class Install extends ReadyResource {
   }
 
   _resolveAppDest(filename, home) {
-    if (isWindows) return null
     if (this.to) return path.join(this.to, filename)
+    if (isWindows) return null
     if (isMac) return path.join(home, 'Applications', filename)
     const candidates = [path.join(home, 'Applications'), path.join(home, 'AppImages')]
     const dir =
@@ -229,7 +296,12 @@ class Install extends ReadyResource {
     const toInstall = []
 
     for (const target of targets) {
-      if (target.ext === '.msix' ? this._hasInstalledMsix(name) : fs.existsSync(target.dest)) {
+      const occupied =
+        target.ext === '.msix' && !this.to
+          ? this._hasInstalledMsix(name)
+          : fs.existsSync(target.dest)
+
+      if (occupied) {
         exists.push({ filename: target.filename, dest: target.dest, ext: target.ext })
         continue
       }
@@ -298,8 +370,7 @@ class Install extends ReadyResource {
       state: { home, name, upgrade, version }
     } = this
     const key = appPath + filename + ext
-    const verlink = plink.serialize({ drive: this.drive.core })
-
+    const verlink = this.drive.core ? plink.serialize({ drive: this.drive.core }) : null
     this.emit('app', {
       app: filename,
       name,
@@ -317,6 +388,13 @@ class Install extends ReadyResource {
     }
 
     if (ext === '.msix') {
+      if (this.to) {
+        fs.mkdirSync(path.dirname(dest), { recursive: true })
+        this._move(from, dest)
+        const cer = from.slice(0, -ext.length) + '.cer'
+        if (fs.existsSync(cer)) this._move(cer, dest.slice(0, -ext.length) + '.cer')
+        return
+      }
       const MSIXManager = require('msix-manager')
       await new MSIXManager().addPackage(from)
       return

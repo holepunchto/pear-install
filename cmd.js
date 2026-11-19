@@ -74,6 +74,15 @@ class InstallCmd extends Opstream {
     install.on('installing', (data) => {
       this.push({ tag: 'installing', data })
     })
+    install.on('dependencies', (data) => {
+      this.push({ tag: 'dependencies', data })
+    })
+    install.on('compiling', (data) => {
+      this.push({ tag: 'compiling', data })
+    })
+    install.on('building', (data) => {
+      this.push({ tag: 'building', data })
+    })
     install.on('app', (data) => {
       this.push({ tag: 'app', data })
     })
