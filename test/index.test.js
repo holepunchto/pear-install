@@ -118,7 +118,7 @@ test('link with pathname emits error event', async function (t) {
   const { events } = await run(['--json', link])
   const error = events.find((e) => e.tag === 'error')
   t.ok(error, 'error event emitted')
-  t.is(error.data.message, 'Link must not have pathname')
+  t.is(error.data.message, 'Installable pear:// links cannot have pathnames')
 })
 
 test(
