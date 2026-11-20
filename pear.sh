@@ -31,9 +31,9 @@ target="$dest/$name"
 tmp="$HOME/.local/$name.download"
 
 if [ -e "$target" ]; then
-  echo "Refusing to overwrite $target" >&2
-  echo "Remove it and rerun to reinstall." >&2
-  exit 1
+  echo "$name already installed at $target"
+  echo "Remove it and rerun to reinstall."
+  exit 0
 fi
 
 sha256() {
