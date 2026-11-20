@@ -22,7 +22,8 @@ $target = Join-Path $dir "$name.exe"
 $tmp = Join-Path $env:LOCALAPPDATA "Temp\$name.download.exe"
 
 if (Test-Path $target) {
-  throw "Refusing to overwrite $target`nRemove it and rerun to reinstall."
+  Write-Host "$name already installed at $target`nRemove it and rerun to reinstall."
+  return
 }
 
 Write-Host "Installing $name"
