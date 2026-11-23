@@ -111,9 +111,10 @@ class Install extends ReadyResource {
 
     await run('git', ['clone', ...(this.ref ? ['--branch', this.ref] : []), link, repo])
 
-    const which = spawnSync('which', ['npm'], { encoding: 'utf8' })
+    const exe = isWindows ? 'npm.cmd' : 'npm'
+    const which = spawnSync(isWindows ? 'where.exe' : 'which', [exe], { encoding: 'utf8' })
     const out = typeof which.stdout === 'string' ? which.stdout : (which.stdout?.toString() ?? '')
-    const npm = out.trim() || 'npm'
+    const npm = out.split(/\r?\n/)[0].trim() || exe
 
     this.emit('dependencies', { repo, exec: 'npm install' })
     await run(npm, ['install'], repo)
