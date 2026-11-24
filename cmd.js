@@ -2,7 +2,6 @@
 const process = require('process')
 const path = require('path')
 const os = require('os')
-const fs = require('fs')
 const crypto = require('hypercore-crypto')
 const Corestore = require('corestore')
 const Hyperswarm = require('hyperswarm')
