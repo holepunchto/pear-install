@@ -1,7 +1,10 @@
 'use strict'
+const fs = require('fs')
+const crypto = require('hypercore-crypto')
 const Corestore = require('corestore')
 const Hyperdrive = require('hyperdrive')
 const Hyperswarm = require('hyperswarm')
+const plink = require('pear-link')
 const tmp = require('test-tmp')
 const { command, arg, bail } = require('paparam')
 const pkg = require('../package.json')
@@ -21,8 +24,23 @@ async function install(cmd) {
         return { host, port: int }
       })
     : undefined
-  const stream = new InstallCmd({ link, only, to, bootstrap, timeout })
-  await InstallCmd.output(json, stream)
+
+  const storage = await tmp()
+  const corestore = new Corestore(storage)
+  const swarm = new Hyperswarm({ bootstrap })
+  swarm.on('connection', (c) => corestore.replicate(c))
+  const { drive } = plink.parse(link)
+  swarm.join(crypto.discoveryKey(drive.key), { server: false, client: true })
+  try {
+    const stream = new InstallCmd({ link, only, to, timeout, corestore, swarm })
+    await InstallCmd.output(json, stream)
+  } finally {
+    await swarm.destroy()
+    await corestore.close()
+    try {
+      fs.rmSync(storage, { recursive: true, force: true })
+    } catch {}
+  }
 }
 
 async function seed(t, { bootstrap, manifest, files }) {

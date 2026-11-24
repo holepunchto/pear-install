@@ -1,8 +1,15 @@
 'use strict'
 const process = require('process')
+const path = require('path')
+const os = require('os')
+const fs = require('fs')
+const crypto = require('hypercore-crypto')
+const Corestore = require('corestore')
+const Hyperswarm = require('hyperswarm')
 const Opstream = require('pear-opstream')
 const byteSize = require('tiny-byte-size')
 const { isWindows } = require('which-runtime')
+const plink = require('pear-link')
 const pkg = require('./package.json')
 const Install = require('.')
 
@@ -61,8 +68,23 @@ class InstallCmd extends Opstream {
           return { host, port: int }
         })
       : undefined
-    const stream = new InstallCmd({ link, arch, only, to, bootstrap, timeout })
-    await InstallCmd.output(json, stream)
+
+    const rand = crypto.randomBytes(16).toString('hex')
+    const base = path.join(os.tmpdir(), 'pear-install-' + rand)
+    const corestore = new Corestore(base)
+    const swarm = new Hyperswarm({ bootstrap })
+    swarm.on('connection', (c) => corestore.replicate(c))
+
+    const { drive } = plink.parse(link)
+    swarm.join(crypto.discoveryKey(drive.key), { server: false, client: true })
+
+    try {
+      const stream = new InstallCmd({ link, arch, only, to, timeout, corestore, swarm })
+      await InstallCmd.output(json, stream)
+    } finally {
+      await swarm.destroy()
+      await corestore.close()
+    }
   }
 
   constructor(params) {

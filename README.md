@@ -37,12 +37,11 @@ const Install = require('pear-install')
 - `arch` _(string, optional)_ — target architecture on the current OS; defaults to `process.arch`
 - `to` _(string, optional)_ — target directory
 - `only` _(string, optional)_ — comma-separated filenames
-- `bootstrap` _(array, optional)_ — `[{ host, port }, ...]` DHT nodes
 - `timeout` _(number, optional)_ — milliseconds, default `30000`
-- `corestore` _(Corestore, optional)_ — inject an existing corestore; not closed by `install.close()`
-- `swarm` _(Hyperswarm, optional)_ — inject an existing swarm; not destroyed by `install.close()`
+- `corestore` _(Corestore, required)_ — injected corestore; not closed by `install.close()`
+- `swarm` _(Hyperswarm, required)_ — injected swarm; not destroyed by `install.close()`
 
-If `corestore` or `swarm` is omitted, `Install` creates and owns its own.
+`corestore` and `swarm` must always be supplied by the caller. `Install` never creates or owns its own, and never joins or leaves topics on it — the caller must `swarm.join(discoveryKey, { server: false, client: true })` for the link's drive before calling `install.ready()`, and destroy that discovery session itself.
 
 ### `await install.ready()`
 
@@ -50,7 +49,7 @@ Runs the install. Throws on failure.
 
 ### `await install.close()`
 
-Releases the drive, the owned swarm and corestore, and removes the temp dir.
+Releases the drive and removes the temp dir. The injected swarm and corestore are left open for the caller to manage.
 
 ### Reusing a corestore and swarm
 
@@ -60,9 +59,12 @@ const swarm = new Hyperswarm()
 swarm.on('connection', (c) => corestore.replicate(c))
 
 for (const link of links) {
+  const { drive } = plink.parse(link)
+  const discovery = swarm.join(crypto.discoveryKey(drive.key), { server: false, client: true })
   const install = new Install({ link, corestore, swarm })
   await install.ready()
   await install.close()
+  await discovery.destroy()
 }
 
 await swarm.destroy()

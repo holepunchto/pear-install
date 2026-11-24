@@ -7,9 +7,7 @@ const process = require('process')
 const LocalDrive = require('localdrive')
 const { isMac, isLinux, isWindows } = require('which-runtime')
 const crypto = require('hypercore-crypto')
-const Corestore = require('corestore')
 const Hyperdrive = require('hyperdrive')
-const Hyperswarm = require('hyperswarm')
 const plink = require('pear-link')
 const PearError = require('pear-errors')
 const ReadyResource = require('ready-resource')
@@ -23,30 +21,16 @@ function ERR_EXISTS(msg, info = null) {
   return new PearError(msg, ERR_EXISTS, info)
 }
 
-const PEAR_DIR = isMac
-  ? path.join(os.homedir(), 'Library', 'Application Support', 'pear')
-  : isLinux
-    ? path.join(os.homedir(), '.config', 'pear')
-    : path.join(os.homedir(), 'AppData', 'Roaming', 'pear')
-
 class Install extends ReadyResource {
-  constructor({
-    link,
-    arch = process.arch,
-    only,
-    to,
-    bootstrap,
-    timeout = 30_000,
-    corestore = null,
-    swarm = null
-  }) {
+  constructor({ link, arch = process.arch, only, to, timeout = 30_000, corestore, swarm }) {
     super()
+    if (!corestore) throw new Error('corestore is required')
+    if (!swarm) throw new Error('swarm is required')
     this.doneFinding = null
     this.link = link
     this.arch = arch
     this.only = only
     this.to = to
-    this.bootstrap = bootstrap
     this.timeout = timeout
     this.state = null
     this.targets = []
@@ -54,9 +38,6 @@ class Install extends ReadyResource {
     this.drive = null
     this.corestore = corestore
     this.swarm = swarm
-    this._ownCorestore = corestore === null
-    this._ownSwarm = swarm === null
-    this.discovery = null
   }
   async _open() {
     try {
@@ -67,14 +48,14 @@ class Install extends ReadyResource {
     }
   }
   async _install() {
-    const { link, arch, only, to, bootstrap, timeout = 30_000 } = this
+    const { link, arch, only, to, timeout = 30_000 } = this
     const parsed = plink.parse(link)
     if (parsed.pathname) throw new Error('Link must not have pathname')
 
     const host = process.platform + '-' + arch
     this.emit('installing', { link, host })
 
-    await this._openDrive({ bootstrap, timeout, parsed })
+    await this._openDrive({ timeout, parsed })
     this.state = await this._readManifestState()
     const { bin, name } = this.state
     const appPath = '/by-arch/' + host + '/app/'
@@ -103,22 +84,15 @@ class Install extends ReadyResource {
     this.emit('final', { success: true, installed, exists })
   }
 
-  async _openDrive({ bootstrap, timeout, parsed }) {
+  async _openDrive({ timeout, parsed }) {
     const rand = crypto.randomBytes(16).toString('hex')
-    this.base = path.join(PEAR_DIR, 'gc', rand)
+    this.base = path.join(os.tmpdir(), 'pear-install-' + rand)
     fs.mkdirSync(this.base, { recursive: true })
-
-    if (this._ownCorestore) this.corestore = new Corestore(this.base)
-    if (this._ownSwarm) {
-      this.swarm = new Hyperswarm({ bootstrap })
-      this.swarm.on('connection', (c) => this.corestore.replicate(c))
-    }
 
     this.drive = new Hyperdrive(this.corestore.session(), parsed.drive.key)
 
     await this.drive.ready()
     this.doneFinding = this.drive.findingPeers()
-    this.discovery = this.swarm.join(this.drive.discoveryKey, { server: false, client: true })
 
     await this._waitForUpdate(timeout)
   }
@@ -451,18 +425,6 @@ class Install extends ReadyResource {
     if (this.drive) {
       await this.drive.close()
       this.drive = null
-    }
-    if (this.discovery) {
-      await this.discovery.destroy()
-      this.discovery = null
-    }
-    if (this.swarm && this._ownSwarm) {
-      await this.swarm.destroy()
-      this.swarm = null
-    }
-    if (this.corestore && this._ownCorestore) {
-      await this.corestore.close()
-      this.corestore = null
     }
     if (this.base) {
       try {
