@@ -316,7 +316,7 @@ class Install extends ReadyResource {
       if (!isWindows) this._addToPath(path.join(os.homedir(), '.local', 'bin'))
     } else {
       try {
-        await fs.promises.rename(from, dest)
+        this._move(from, dest)
       } catch (err) {
         if (err.code === 'EACCES' || err.code === 'EPERM') {
           throw ERR_PERMISSION_REQUIRED(`Permission denied: ${dest}\n`)
@@ -408,8 +408,8 @@ class Install extends ReadyResource {
     } catch (err) {
       if (err.code === 'ENOENT') return // ignore if path does not exist
       if (err.code !== 'EXDEV') throw err
-      fs.copyFileSync(src, dst)
-      fs.rmSync(src)
+      fs.cpSync(src, dst, { recursive: true })
+      fs.rmSync(src, { recursive: true })
     }
   }
 
