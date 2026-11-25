@@ -5,6 +5,7 @@ const fs = require('fs')
 const tmp = require('test-tmp')
 const Corestore = require('corestore')
 const Hyperdrive = require('hyperdrive')
+const Hyperswarm = require('hyperswarm')
 const crypto = require('hypercore-crypto')
 const plink = require('pear-link')
 const { isWindows } = require('which-runtime')
@@ -27,7 +28,14 @@ test(
     await fs.promises.mkdir(installDir, { recursive: true })
 
     const store = new Corestore(path.join(dir, 'store'))
+    const swarm = new Hyperswarm()
+    swarm.on('connection', (c) => store.replicate(c))
+    swarm.join(crypto.discoveryKey(plink.parse(PEAR_KEY).drive.key), {
+      server: false,
+      client: true
+    })
     t.teardown(async () => {
+      await swarm.destroy()
       await store.close()
     })
 
@@ -37,7 +45,8 @@ test(
       link: PEAR_KEY,
       to: installDir,
       timeout: 120_000,
-      corestore: store
+      corestore: store,
+      swarm
     })) {
       if (event.tag === 'error') t.comment(event.data.message)
       if (event.tag === 'final') finalInstall = event.data

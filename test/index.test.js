@@ -231,6 +231,22 @@ test('_move falls back to copy+rm on EXDEV', { skip: isWindows }, async function
   t.is(fs.readFileSync(path.join(target, 'tbin'), 'utf8'), 'BIN', 'bin content copied to target')
 })
 
+test('throws when corestore is missing', function (t) {
+  t.exception(
+    () => new Install({ link: 'pear://x', swarm: {} }),
+    /corestore is required/,
+    'corestore is mandatory'
+  )
+})
+
+test('throws when swarm is missing', function (t) {
+  t.exception(
+    () => new Install({ link: 'pear://x', corestore: {} }),
+    /swarm is required/,
+    'swarm is mandatory'
+  )
+})
+
 test('accepts injected corestore and swarm', { skip: isWindows }, async function (t) {
   t.timeout(60000)
   const testnet = await createTestnet(3, t.teardown)
@@ -244,6 +260,7 @@ test('accepts injected corestore and swarm', { skip: isWindows }, async function
   await corestore.ready()
   const swarm = new Hyperswarm({ bootstrap: testnet.bootstrap })
   swarm.on('connection', (c) => corestore.replicate(c))
+  swarm.join(hypercoreCrypto.discoveryKey(key), { server: false, client: true })
   t.teardown(async () => {
     await swarm.destroy()
     await corestore.close()
@@ -289,6 +306,7 @@ test('injected corestore reused for second install', { skip: isWindows }, async 
   const targetA = await tmp(t)
   const targetB = await tmp(t)
 
+  swarm.join(hypercoreCrypto.discoveryKey(keyA), { server: false, client: true })
   const first = new Install({
     link: plink.serialize({ drive: { key: keyA } }),
     to: targetA,
@@ -300,6 +318,7 @@ test('injected corestore reused for second install', { skip: isWindows }, async 
   await first.close()
   t.is(fs.readFileSync(path.join(targetA, 'tbin-a'), 'utf8'), 'A', 'first install wrote bin')
 
+  swarm.join(hypercoreCrypto.discoveryKey(keyB), { server: false, client: true })
   const second = new Install({
     link: plink.serialize({ drive: { key: keyB } }),
     to: targetB,
@@ -341,7 +360,7 @@ test('permission denied when target dir is read-only', { skip: isWindows }, asyn
 })
 
 test('_detectShellConfig does not throw when SHELL is unset', { skip: isWindows }, function (t) {
-  const install = new Install({ link: 'pear://x' })
+  const install = new Install({ link: 'pear://x', corestore: {}, swarm: {} })
   let cfg
   t.execution(() => {
     cfg = install._detectShellConfig(undefined)
@@ -351,7 +370,7 @@ test('_detectShellConfig does not throw when SHELL is unset', { skip: isWindows 
 })
 
 test('_detectShellConfig derives shell name from SHELL', { skip: isWindows }, function (t) {
-  const install = new Install({ link: 'pear://x' })
+  const install = new Install({ link: 'pear://x', corestore: {}, swarm: {} })
   const cfg = install._detectShellConfig('/usr/bin/zsh')
   t.is(cfg.shell, 'zsh', 'shell basename extracted from SHELL')
 })
