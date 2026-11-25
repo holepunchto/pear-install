@@ -408,7 +408,7 @@ class Install extends ReadyResource {
     } catch (err) {
       if (err.code === 'ENOENT') return // ignore if path does not exist
       if (err.code !== 'EXDEV') throw err
-      fs.cpSync(src, dst, { recursive: true })
+      fs.cpSync(src, dst, { recursive: true, verbatimSymlinks: true })
       fs.rmSync(src, { recursive: true })
     }
   }
