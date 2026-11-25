@@ -37,9 +37,7 @@ async function install(cmd) {
   } finally {
     await swarm.destroy()
     await corestore.close()
-    try {
-      fs.rmSync(storage, { recursive: true, force: true })
-    } catch {}
+    fs.rmSync(storage, { recursive: true, force: true })
   }
 }
 
