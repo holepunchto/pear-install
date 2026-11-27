@@ -36,6 +36,7 @@ class Install extends ReadyResource {
     this.targets = []
     this.base = null
     this.drive = null
+    this.rootDrive = null
     this.corestore = corestore
     this.swarm = swarm
   }
@@ -90,11 +91,18 @@ class Install extends ReadyResource {
     fs.mkdirSync(this.base, { recursive: true })
 
     this.drive = new Hyperdrive(this.corestore.session(), parsed.drive.key)
+    this.rootDrive = this.drive
 
     await this.drive.ready()
     this.doneFinding = this.drive.findingPeers()
 
     await this._waitForUpdate(timeout)
+
+    const length = Number.isInteger(parsed.drive.length)
+      ? parsed.drive.length
+      : this.drive.core.length
+    this.drive = this.drive.checkout?.(length) ?? this.drive
+    await this.drive.ready()
   }
 
   async _waitForUpdate(timeout = this.timeout) {
@@ -424,7 +432,9 @@ class Install extends ReadyResource {
     }
     if (this.drive) {
       await this.drive.close()
-      this.drive = null
+    }
+    if (this.rootDrive) {
+      await this.rootDrive.close()
     }
     if (this.base) {
       try {

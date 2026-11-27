@@ -9,6 +9,7 @@ const plink = require('pear-link')
 const { isWindows } = require('which-runtime')
 const tmp = require('test-tmp')
 const Corestore = require('corestore')
+const Hyperdrive = require('hyperdrive')
 const Hyperswarm = require('hyperswarm')
 const Install = require('..')
 const { seed, run, arch, bootstrapArg } = require('./helper')
@@ -36,6 +37,59 @@ test('successful bin install via testnet', { skip: isWindows }, async function (
   t.is(final.data.success, true, 'success')
   t.is(fs.readFileSync(path.join(target, 'tbin'), 'utf8'), 'BIN', 'bin written to target')
 })
+
+test(
+  'installs pinned version when link encodes a length (checkout)',
+  { skip: isWindows },
+  async function (t) {
+    t.timeout(60000)
+    const testnet = await createTestnet(3, t.teardown)
+    const storage = await tmp(t)
+    const corestore = new Corestore(storage)
+    const drive = new Hyperdrive(corestore)
+    await drive.ready()
+    await drive.put(
+      '/package.json',
+      Buffer.from(
+        JSON.stringify({ name: 'tbin', version: '1.0.0', upgrade: 'pear://x', bin: 'cli.js' })
+      )
+    )
+    await drive.put('/by-arch/' + arch + '/app/tbin', Buffer.from('OLD'))
+    const v1Length = drive.core.length
+    await drive.put('/by-arch/' + arch + '/app/tbin', Buffer.from('NEW'))
+
+    const swarm = new Hyperswarm({ bootstrap: testnet.bootstrap })
+    swarm.on('connection', (c) => corestore.replicate(c))
+    swarm.join(drive.discoveryKey, { server: true, client: false })
+    await swarm.flush()
+    t.teardown(async () => {
+      await swarm.destroy()
+      await drive.close()
+      await corestore.close()
+    })
+
+    const link = plink.serialize({
+      drive: { key: drive.core.key, fork: drive.core.fork, length: v1Length }
+    })
+    const target = await tmp(t)
+    const { events } = await run([
+      '--json',
+      '--to',
+      target,
+      '--dht-bootstrap',
+      bootstrapArg(testnet),
+      link
+    ])
+    const final = events.find((e) => e.tag === 'final')
+    t.ok(final, 'final event emitted')
+    t.is(final.data.success, true, 'success')
+    t.is(
+      fs.readFileSync(path.join(target, 'tbin'), 'utf8'),
+      'OLD',
+      'installed the pinned version, not the latest'
+    )
+  }
+)
 
 test('notFound emits full pear:// link when platform binary missing', async function (t) {
   t.timeout(60000)
