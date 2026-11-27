@@ -95,6 +95,12 @@ class Install extends ReadyResource {
     this.doneFinding = this.drive.findingPeers()
 
     await this._waitForUpdate(timeout)
+
+    const length = Number.isInteger(parsed.drive.length)
+      ? parsed.drive.length
+      : this.drive.core.length
+    this.drive = this.drive.checkout?.(length) ?? this.drive
+    await this.drive.ready()
   }
 
   async _waitForUpdate(timeout = this.timeout) {
